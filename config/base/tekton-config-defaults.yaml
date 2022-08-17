@@ -20,5 +20,5 @@ metadata:
     operator.tekton.dev/release: devel
 
 data:
-  AUTOINSTALL_COMPONENTS: "true"
-  DEFAULT_TARGET_NAMESPACE: ""
+  AUTOINSTALL_COMPONENTS: 'false'
+  DEFAULT_TARGET_NAMESPACE: ''

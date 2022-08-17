@@ -858,8 +858,11 @@ func (r *Reconciler) checkIfUserHasDb(ctx context.Context, th *v1alpha1.TektonHu
 }
 
 func (r *Reconciler) setUpAndCreateInstallerSet(ctx context.Context, manifest mf.Manifest, th *v1alpha1.TektonHub, installerSetName, version, prefixName string) error {
-	manifest = manifest.Filter(mf.Not(mf.Any(mf.ByKind("Secret"), mf.ByKind("PersistentVolumeClaim"), mf.ByKind("Namespace"), mf.ByKind("ConfigMap"))))
-
+	if installerSetName == apiInstallerSet {
+		manifest = manifest.Filter(mf.Not(mf.Any(mf.ByKind("Secret"), mf.ByKind("PersistentVolumeClaim"), mf.ByKind("Namespace"))))
+	} else {
+		manifest = manifest.Filter(mf.Not(mf.Any(mf.ByKind("Secret"), mf.ByKind("PersistentVolumeClaim"), mf.ByKind("Namespace"), mf.ByKind("ConfigMap"))))
+	}
 	// If the component is dbMigration or api, then add the specHash of
 	// of db secret as annotation, because if user wants to use his database
 	// in future, then based on the value of db secret hash, reconciler should
