@@ -28,7 +28,7 @@ A release constitutes tagged Github release (release.yaml) and a release to oper
     - [Tektoncd Triggers](https://github.com/tektoncd/triggers/releases)
     - [Tektoncd Dashboard](https://github.com/tektoncd/dashboard/releases)
     - [Tektoncd Results](https://github.com/tektoncd/results/releases)
-
+    - [Tektoncd Hub](https://github.com/tektoncd/hub/releases)
 
 1. How do we know the version of the Tektoncd components (Pipelines, Triggers, Dashboard ...) that are packaged within a release of Tektoncd Operator?
 
