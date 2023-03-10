@@ -73,6 +73,7 @@ ifeq ($(TARGET), openshift)
 	rm -rf ./cmd/openshift/operator/kodata/tekton-addon/pipelines-as-code-templates/java.yaml
 	rm -rf ./cmd/openshift/operator/kodata/tekton-addon/pipelines-as-code-templates/nodejs.yaml
 	rm -rf ./cmd/openshift/operator/kodata/tekton-addon/pipelines-as-code-templates/python.yaml
+	rm -rf ./cmd/openshift/operator/kodata/tekton-addon/pipelines-as-code-templates/generic.yaml
 else
 	rm -rf ./cmd/$(TARGET)/operator/kodata/tekton*
 endif
@@ -177,7 +178,7 @@ lint-yaml: ${YAML_FILES} ## runs yamllint on all yaml files
 	@yamllint -c .yamllint $(YAML_FILES)
 
 
-# Prerequisite: docker and kind
+# Prerequisite: docker [or] podman and kind
 # this will deploy a local registry using docker and create a kind cluster
 # configuring with the registry
 # then does make apply to deploy the operator

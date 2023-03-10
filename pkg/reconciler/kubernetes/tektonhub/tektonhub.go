@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -575,6 +575,8 @@ func (r *Reconciler) transform(ctx context.Context, manifest mf.Manifest, th *v1
 		addConfigMapKeyValue(uiConfigName, "AUTH_BASE_URL", th.Status.AuthRouteUrl),
 		addConfigMapKeyValue(uiConfigName, "API_VERSION", "v1"),
 		addConfigMapKeyValue(uiConfigName, "REDIRECT_URI", th.Status.UiRouteUrl),
+		addConfigMapKeyValue(uiConfigName, "CUSTOM_LOGO_BASE64_DATA", th.Spec.CustomLogo.Base64Data),
+		addConfigMapKeyValue(uiConfigName, "CUSTOM_LOGO_MEDIA_TYPE", th.Spec.CustomLogo.MediaType),
 		common.AddDeploymentRestrictedPSA(),
 		common.AddJobRestrictedPSA(),
 	}
@@ -1147,6 +1149,10 @@ func updateApiConfigMap(th *v1alpha1.TektonHub, configMapName string) mf.Transfo
 			}
 		}
 
+		if th.Spec.Api.CatalogRefreshInterval != "" {
+			cm.Data["CATALOG_REFRESH_INTERVAL"] = th.Spec.Api.CatalogRefreshInterval
+		}
+
 		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
 		if err != nil {
 			return err
@@ -1222,7 +1228,7 @@ func getConfigDataFromHubURL(th *v1alpha1.TektonHub) (*Data, error) {
 			return nil, err
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}

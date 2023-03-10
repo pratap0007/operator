@@ -22,11 +22,11 @@ release_yaml() {
     fi
 
     if [[ $comp == "dashboard" ]]; then
-      if [[ ${releaseFileName} == "tekton-dashboard-release" ]]; then
+      if [[ ${releaseFileName} == "release-full" ]]; then
         dir="dashboard/tekton-dashboard-fullaccess"
       fi
 
-      if [[ ${releaseFileName} == "tekton-dashboard-release-readonly" ]]; then
+      if [[ ${releaseFileName} == "release" ]]; then
         dir="dashboard/tekton-dashboard-readonly"
       fi
     fi
@@ -149,7 +149,7 @@ release_yaml_pac() {
          echo ""
      fi
 
-    runtime=( go java nodejs python )
+    runtime=( go java nodejs python generic )
     for run in "${runtime[@]}"
     do
       echo "fetching PipelineRun template for runtime: $run"
@@ -251,8 +251,8 @@ main() {
   if [[ ${TARGET} != "openshift" ]]; then
     d_version=$(${OPERATORTOOL} -config ${CONFIG} component-version dashboard)
     # get release YAML for Dashboard
-    release_yaml dashboard tekton-dashboard-release 00-dashboard ${d_version}
-    release_yaml dashboard tekton-dashboard-release-readonly 00-dashboard ${d_version}
+    release_yaml dashboard release-full 00-dashboard ${d_version}
+    release_yaml dashboard release 00-dashboard ${d_version}
 
     r_version=$(${OPERATORTOOL} -config ${CONFIG} component-version results)
     # get release YAML for Results
