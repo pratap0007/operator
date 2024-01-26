@@ -46,9 +46,10 @@ func (pac *OpenShiftPipelinesAsCode) GetStatus() TektonComponentStatus {
 
 // OpenShiftPipelinesAsCodeSpec defines the desired state of OpenShiftPipelinesAsCode
 type OpenShiftPipelinesAsCodeSpec struct {
-	CommonSpec  `json:",inline"`
-	Config      Config `json:"config,omitempty"`
-	PACSettings `json:",inline"`
+	CommonSpec                  `json:",inline"`
+	Config                      Config `json:"config,omitempty"`
+	PACSettings                 `json:",inline"`
+	AdditionalPACControllerSpec map[string]AdditionalPACControllerConfig `json:"additionalPACControllerSpec"`
 }
 
 // OpenShiftPipelinesAsCodeStatus defines the observed state of OpenShiftPipelinesAsCode
