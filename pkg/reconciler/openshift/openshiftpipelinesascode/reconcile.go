@@ -26,8 +26,15 @@ import (
 	pacreconciler "github.com/tektoncd/operator/pkg/client/injection/reconciler/operator/v1alpha1/openshiftpipelinesascode"
 	"github.com/tektoncd/operator/pkg/reconciler/common"
 	"github.com/tektoncd/operator/pkg/reconciler/kubernetes/tektoninstallerset/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+)
+
+const (
+	// installerset label
+	installerSetLabelCreatedByValue         = "AdditionalPACController"
+	additionalPACControllerInstallerSetName = "PACController"
 )
 
 // Reconciler implements controller.Reconciler for OpenShiftPipelinesAsCode resources.
@@ -43,7 +50,11 @@ type Reconciler struct {
 	extension common.Extension
 	// version of PipelinesAsCode which we are installing
 	pacVersion string
+	// additionalPAC is the source of manifest for the additional Openshift Pipelines As Code Controller
+	additionalPACManifest mf.Manifest
 }
+
+const AdditionalPACControllerCustomType = "additional-pac-controller"
 
 // Check that our Reconciler implements controller.Reconciler
 var _ pacreconciler.Interface = (*Reconciler)(nil)
@@ -93,6 +104,52 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		}
 		pac.Status.MarkInstallerSetNotReady(msg)
 		return nil
+	}
+
+	// handles additional controller deletion logic
+
+	matchLabels := map[string]string{}
+	for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+		matchLabels[v1alpha1.InstallerSetType] = "custom-" + pacInfo.Name
+		// matchLabels[v1alpha1.CreatedByKey] = v1alpha1.OpenShiftPipelinesAsCodeName
+	}
+
+	isLables := []metav1.LabelSelector{
+		{MatchLabels: matchLabels},
+	}
+
+	// additionalPACLabelSelector, err := common.LabelSelector(isLables[0])
+	// if err != nil {
+	// 	return err
+	// }
+
+	// find out the all pac additional installersets and filter based on the labels and if
+	// if a installerset does not have above label then delete it
+	// how to find out the all label selector
+
+	fmt.Println("generated labels", isLables)
+
+	// --- //
+
+	for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo)
+		if err != nil {
+			msg := fmt.Sprintf("Additional PACController Transformation is failed: %s", err.Error())
+			logger.Error(msg)
+		}
+		fmt.Println("------------------", pacInfo.Name)
+
+		fmt.Println("=========", modifiedPACManifest.Resources())
+		if err := r.installerSetClient.CustomSet(ctx, pac, pacInfo.Name, modifiedPACManifest, additionalControllerTransform(r.extension)); err != nil {
+			msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
+			logger.Error(msg)
+			if err == v1alpha1.REQUEUE_EVENT_AFTER {
+				return err
+			}
+			pac.Status.MarkInstallerSetNotReady(msg)
+			return nil
+		}
+
 	}
 
 	if err := r.extension.PostReconcile(ctx, pac); err != nil {
