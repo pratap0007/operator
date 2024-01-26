@@ -136,4 +136,5 @@ var (
 	OperandTektoncdChains        = "tektoncd-chains"
 	OpenShiftPipelinesAsCodeName = "pipelines-as-code"
 	PrunerResourceName           = "tektoncd-pruner"
+	AdditionalPACController      = "additional-pac-controller"
 )
