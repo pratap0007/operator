@@ -53,6 +53,17 @@ func OpenShiftExtension(ctx context.Context) common.Extension {
 		logger.Fatalf("failed to fetch PAC manifest: %v", err)
 	}
 
+	// fetch the additionalcontroller configs
+	additionalPACControllerManifest, err := mf.ManifestFrom(mf.Slice{}, mf.UseClient(mfclient))
+	if err != nil {
+		logger.Fatalw("Error creating initial manifest", zap.Error(err))
+	}
+
+	additionalPACControllerConfigLocation := filepath.Join(os.Getenv(common.KoEnvKey), "static", "pipelines-as-code")
+	if err := common.AppendManifest(&additionalPACControllerManifest, additionalPACControllerConfigLocation); err != nil {
+		logger.Fatalf("failed to fetch Additional PAC manifest: %v", err)
+	}
+
 	prTemplates, err := fetchPipelineRunTemplates()
 	if err != nil {
 		logger.Fatalf("failed to fetch pipelineRun templates: %v", err)
@@ -67,16 +78,18 @@ func OpenShiftExtension(ctx context.Context) common.Extension {
 	return openshiftExtension{
 		// component version is used for metrics, passing a dummy
 		// value through extension not going to affect execution
-		installerSetClient:   client.NewInstallerSetClient(tisClient, operatorVer, "pipelines-as-code-ext", v1alpha1.KindOpenShiftPipelinesAsCode, nil),
-		pacManifest:          &pacManifest,
-		pipelineRunTemplates: prTemplates,
+		installerSetClient:              client.NewInstallerSetClient(tisClient, operatorVer, "pipelines-as-code-ext", v1alpha1.KindOpenShiftPipelinesAsCode, nil),
+		pacManifest:                     &pacManifest,
+		additionalPACControllerManifest: &additionalPACControllerManifest,
+		pipelineRunTemplates:            prTemplates,
 	}
 }
 
 type openshiftExtension struct {
-	installerSetClient   *client.InstallerSetClient
-	pacManifest          *mf.Manifest
-	pipelineRunTemplates *mf.Manifest
+	installerSetClient              *client.InstallerSetClient
+	pacManifest                     *mf.Manifest
+	additionalPACControllerManifest *mf.Manifest
+	pipelineRunTemplates            *mf.Manifest
 }
 
 func (oe openshiftExtension) Transformers(comp v1alpha1.TektonComponent) []mf.Transformer {
