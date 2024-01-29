@@ -26,7 +26,6 @@ import (
 	pacreconciler "github.com/tektoncd/operator/pkg/client/injection/reconciler/operator/v1alpha1/openshiftpipelinesascode"
 	"github.com/tektoncd/operator/pkg/reconciler/common"
 	"github.com/tektoncd/operator/pkg/reconciler/kubernetes/tektoninstallerset/client"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 )
@@ -108,15 +107,15 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 
 	// handles additional controller deletion logic
 
-	matchLabels := map[string]string{}
-	for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
-		matchLabels[v1alpha1.InstallerSetType] = "custom-" + pacInfo.Name
-		// matchLabels[v1alpha1.CreatedByKey] = v1alpha1.OpenShiftPipelinesAsCodeName
-	}
+	// matchLabels := map[string]string{}
+	// for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+	// 	matchLabels[v1alpha1.InstallerSetType] = "custom-" + pacInfo.Name
+	// 	// matchLabels[v1alpha1.CreatedByKey] = v1alpha1.OpenShiftPipelinesAsCodeName
+	// }
 
-	isLables := []metav1.LabelSelector{
-		{MatchLabels: matchLabels},
-	}
+	// isLables := []metav1.LabelSelector{
+	// 	{MatchLabels: matchLabels},
+	// }
 
 	// additionalPACLabelSelector, err := common.LabelSelector(isLables[0])
 	// if err != nil {
@@ -127,19 +126,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	// if a installerset does not have above label then delete it
 	// how to find out the all label selector
 
-	fmt.Println("generated labels", isLables)
-
-	// --- //
 
 	for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+		if pacInfo.ConfigMapName != "" {
+			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
+		}
 		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo)
 		if err != nil {
 			msg := fmt.Sprintf("Additional PACController Transformation is failed: %s", err.Error())
 			logger.Error(msg)
 		}
-		fmt.Println("------------------", pacInfo.Name)
 
-		fmt.Println("=========", modifiedPACManifest.Resources())
 		if err := r.installerSetClient.CustomSet(ctx, pac, pacInfo.Name, modifiedPACManifest, additionalControllerTransform(r.extension)); err != nil {
 			msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
 			logger.Error(msg)
