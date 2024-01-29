@@ -36,8 +36,6 @@ import (
 
 const versionConfigMap = "pipelines-as-code-info"
 
-const additionalPACControllerCM = "pac-additional-controller-info"
-
 // NewController initializes the controller and is called by the generated code
 // Registers event handlers to enqueue events
 func NewController(ctx context.Context, cmw configmap.Watcher) *controller.Impl {
@@ -54,12 +52,6 @@ func NewExtendedController(generator common.ExtensionGenerator) injection.Contro
 			VersionConfigMap: versionConfigMap,
 		}
 		manifest, pacVersion := ctrl.InitController(ctx, common.PayloadOptions{})
-
-		additionalPACCtrl := common.Controller{
-			Logger:           logger,
-			VersionConfigMap: additionalPACControllerCM,
-		}
-		additionalPACmanifest, _ := additionalPACCtrl.InitController(ctx, common.PayloadOptions{})
 
 		operatorVer, err := common.OperatorVersion(ctx)
 		if err != nil {
@@ -78,7 +70,7 @@ func NewExtendedController(generator common.ExtensionGenerator) injection.Contro
 			installerSetClient:    client.NewInstallerSetClient(tisClient, operatorVer, pacVersion, v1alpha1.KindOpenShiftPipelinesAsCode, metrics),
 			extension:             generator(ctx),
 			manifest:              manifest,
-			additionalPACManifest: additionalPACmanifest,
+			additionalPACManifest: filterAdditionalControllerManifest(manifest),
 			pacVersion:            pacVersion,
 		}
 		impl := pacreconciler.NewImpl(ctx, c)

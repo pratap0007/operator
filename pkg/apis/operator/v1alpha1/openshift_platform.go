@@ -32,9 +32,6 @@ type PipelinesAsCode struct {
 	// PACSettings allows user to configure PAC configurations
 	// +optional
 	PACSettings `json:",inline"`
-	// AdditionalPACControllers allows to add multiple PipelineAsCode configuration
-	// +optional
-	AdditionalPACControllers map[string]AdditionalPACControllerConfig `json:"additionalPACControllers"`
 }
 
 type SCC struct {
@@ -47,11 +44,4 @@ type SCC struct {
 	// namespace or in the Default field.
 	// +optional
 	MaxAllowed string `json:"maxAllowed,omitempty"`
-}
-
-// This contains AdditionalPACControllerConfig
-type AdditionalPACControllerConfig struct {
-	Name          string `json:"name"`                    //name of the controller
-	ConfigMapName string `json:"configMapName,omitempty"` // configMap name
-	SecretsName   string `json:"secretsName,omitempty"`   // Secrets name
 }
