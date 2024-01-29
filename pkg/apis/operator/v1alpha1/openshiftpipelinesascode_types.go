@@ -80,9 +80,13 @@ type PACSettings struct {
 
 // This contains AdditionalPACControllerConfig
 type AdditionalPACControllerConfig struct {
-	// configMap name
+	// Name of the additional controller configMap
+	// +optional
 	ConfigMapName string `json:"configMapName,omitempty"`
-	// Secrets name
-	SecretsName string            `json:"secretsName,omitempty"`
-	Settings    map[string]string `json:"settings,omitempty"`
+	// Name of the additional controller Secret
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// Setting will contains the configMap data
+	// +optional
+	Settings map[string]string `json:"settings,omitempty"`
 }
