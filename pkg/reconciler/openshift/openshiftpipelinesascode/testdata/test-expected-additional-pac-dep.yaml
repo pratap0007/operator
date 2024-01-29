@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: pipelines-as-code
+    app.kubernetes.io/version: devel
+  name: test-controller
+  namespace: pipelines-as-code
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/instance: default
+      app.kubernetes.io/name: test-controller
+      app.kubernetes.io/part-of: pipelines-as-code
+  template:
+    metadata:
+      labels:
+        app: test-controller
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/instance: default
+        app.kubernetes.io/name: test-controller
+        app.kubernetes.io/part-of: pipelines-as-code
+        app.kubernetes.io/version: v0.23.0
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_LOGGING_NAME
+          value: pac-config-logging
+        - name: TLS_KEY
+          value: key
+        - name: TLS_CERT
+          value: cert
+        - name: TLS_SECRET_NAME
+          value: pipelines-as-code-tls-secret
+        - name: SYSTEM_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K_METRICS_CONFIG
+          value: '{"Domain":"pipelinesascode.tekton.dev/controller","Component":"pac_controller","PrometheusPort":9090,"ConfigMap":{"name":"pipelines-as-code-config-observability"}}'
+        - name: K_TRACING_CONFIG
+          value: '{"backend":"prometheus","debug":"false","sample-rate":"0"}'
+        - name: K_SINK_TIMEOUT
+          value: '30'
+        - name: PAC_CONTROLLER_LABEL
+          value: test-controller
+        - name: PAC_CONTROLLER_SECRET
+          value: test-secret
+        - name: PAC_CONTROLLER_CONFIGMAP
+          value: test-configmap
+        image: ghcr.io/openshift-pipelines/pipelines-as-code-controller:v0.23.0
+        imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /live
+            port: api
+            scheme: HTTP
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: pac-controller
+        ports:
+        - containerPort: 8080
+          name: api
+        - containerPort: 9090
+          name: metrics
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /live
+            port: api
+            scheme: HTTP
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /etc/pipelines-as-code/tls
+          name: tls
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: pipelines-as-code-controller
+      volumes:
+      - name: tls
+        secret:
+          optional: true
+          secretName: pipelines-as-code-tls-secret

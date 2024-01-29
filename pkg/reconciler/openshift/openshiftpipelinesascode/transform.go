@@ -32,7 +32,7 @@ import (
 )
 
 const pipelinesAsCodeCM = "pipelines-as-code"
-const additionalPACControllerSuffix = "-controller"
+const additionalPACControllerNameSuffix = "-controller"
 
 // const additionPACControllerConfigMap = "addition-pac"
 
@@ -77,16 +77,17 @@ func additionalControllerTransform(extension common.Extension) client.FilterAndT
 	}
 }
 
-func additionalControllerTransformTest(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, addPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
+func additionalControllerTransformTest(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, additionalPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
 
 	pac := comp.(*v1alpha1.OpenShiftPipelinesAsCode)
 	tfs := []mf.Transformer{
-		common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCodeAdditionalController + name),
-		updateAdditionControllerConfigMap(addPACControllerConfig),
-		updateAdditionControllerDeployment(addPACControllerConfig),
-		updateAdditionControllerService(addPACControllerConfig),
-		updateAdditionControllerServiceMonitor(addPACControllerConfig),
-		updateAdditionControllerRoute(addPACControllerConfig),
+		mf.InjectNamespace("openshift-pipelines"),
+		// common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCodeAdditionalController + name),
+		updateAdditionControllerConfigMap(additionalPACControllerConfig, name),
+		updateAdditionControllerDeployment(additionalPACControllerConfig, name),
+		updateAdditionControllerService(additionalPACControllerConfig, name),
+		updateAdditionControllerServiceMonitor(additionalPACControllerConfig, name),
+		updateAdditionControllerRoute(additionalPACControllerConfig, name),
 	}
 
 	allTfs := append(tfs, extension.Transformers(pac)...)
@@ -100,16 +101,25 @@ func additionalControllerTransformTest(ctx context.Context, extension common.Ext
 
 // this will return the resources required by additionalPACController
 func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
-	// implement the whole logic for filtering
 
-	// we need pac controller deployment, service
-	// we need pac configmap
-	// we need route and servicemonitor
+	filteredManifest := mf.Manifest{}
 
-	return manifest
+	deploymentManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Deployment")))
+
+	serviceManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Service")))
+
+	routeManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Route")))
+
+	cmManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code"), mf.ByKind("ConfigMap")))
+
+	serviceMonitorManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-monitor"), mf.ByKind("ServiceMonitor")))
+
+	filteredManifest = filteredManifest.Append(cmManifest, deploymentManifest, serviceManifest, serviceMonitorManifest, routeManifest)
+
+	return filteredManifest
 }
 
-func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	// set the name
 	// set the namespace
 	// set the data from settings
@@ -122,23 +132,42 @@ func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerC
 
 		u.SetName(config.ConfigMapName)
 
-		// }
-		// u.SetName(config.Name + additionalPACControllerSuffix + "-route")
-		// err := unstructured.SetNestedField(u.Object, config.Name+additionalPACControllerSuffix, "spec", "to", "name")
-		// if err != nil {
-		// 	return err
-		// }
+		// if ConfigMap name is not default, then updates the ConfigMap data from settings data
+
+		if u.GetKind() != "ConfigMap" || len(config.Settings) == 0 {
+			return nil
+		}
+		cm := &corev1.ConfigMap{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cm)
+		if err != nil {
+			return err
+		}
+
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+
+		for key, value := range config.Settings {
+			cm.Data[key] = value
+		}
+		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+		if err != nil {
+			return err
+		}
+
+		u.SetUnstructuredContent(unstrObj)
 		return nil
+
 	}
 }
 
-func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Deployment" {
 			return nil
 		}
 
-		u.SetName(config.Name + additionalPACControllerSuffix)
+		u.SetName(name + additionalPACControllerNameSuffix)
 
 		d := &appsv1.Deployment{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, d)
@@ -146,11 +175,14 @@ func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACController
 			return err
 		}
 
-		d.Spec.Template.Labels["app"] = config.Name + additionalPACControllerSuffix
-		d.Spec.Template.Labels["app.kubernetes.io/name"] = config.Name + additionalPACControllerSuffix
-		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = config.Name + additionalPACControllerSuffix
+		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+
+		d.Spec.Template.Labels["app"] = name + additionalPACControllerNameSuffix
+		d.Spec.Template.Labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+
+		d.Spec.Template.Spec.Containers[0].Name = name + additionalPACControllerNameSuffix
 		containerEnvs := d.Spec.Template.Spec.Containers[0].Env
-		d.Spec.Template.Spec.Containers[0].Env = replaceEnvInDeployment(containerEnvs, config)
+		d.Spec.Template.Spec.Containers[0].Env = replaceEnvInDeployment(containerEnvs, config, name)
 		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(d)
 		if err != nil {
 			return err
@@ -161,17 +193,17 @@ func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACController
 	}
 }
 
-func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "ServiceMonitor" {
 			return nil
 		}
 
 		var err error
-		u.SetName(config.Name + additionalPACControllerSuffix + "-servicemonitor")
+		u.SetName(name + additionalPACControllerNameSuffix)
 
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": config.Name + additionalPACControllerSuffix,
+			"app": name + additionalPACControllerNameSuffix,
 		}, "spec", "selector", "matchLabels")
 		if err != nil {
 			return err
@@ -186,28 +218,28 @@ func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACContro
 	}
 }
 
-func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Service" {
 			return nil
 		}
 		var err error
-		u.SetName(config.Name + additionalPACControllerSuffix)
+		u.SetName(name + additionalPACControllerNameSuffix)
 
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app.kubernetes.io/name": config.Name + additionalPACControllerSuffix,
+			"app.kubernetes.io/name": name + additionalPACControllerNameSuffix,
 		}, "spec", "selector")
 		if err != nil {
 			return err
 		}
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": config.Name,
+			"app": name,
 		}, "metadata", "labels")
 		if err != nil {
 			return err
 		}
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app.kubernetes.io/name": config.Name + additionalPACControllerSuffix,
+			"app.kubernetes.io/name": name + additionalPACControllerNameSuffix,
 		}, "metadata", "labels")
 		if err != nil {
 			return err
@@ -217,33 +249,52 @@ func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerCon
 	}
 }
 
-func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Route" {
 			return nil
 		}
-		u.SetName(config.Name + additionalPACControllerSuffix + "-route")
-		err := unstructured.SetNestedField(u.Object, config.Name+additionalPACControllerSuffix, "spec", "to", "name")
+		var err error
+		u.SetName(name + additionalPACControllerNameSuffix)
+		err = unstructured.SetNestedField(u.Object, name+additionalPACControllerNameSuffix, "spec", "to", "name")
 		if err != nil {
 			return err
 		}
+
+		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
+			"app": name,
+		}, "metadata", "labels")
+		if err != nil {
+			return err
+		}
+
+		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
+			"pipelines-as-code/route": name + additionalPACControllerNameSuffix,
+		}, "metadata", "labels")
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 }
 
-func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo *v1alpha1.AdditionalPACControllerConfig) []corev1.EnvVar {
+func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo *v1alpha1.AdditionalPACControllerConfig, name string) []corev1.EnvVar {
 	for i, e := range envs {
 		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName == "" {
-			envs[i].Value = envInfo.Name + additionalPACControllerSuffix + "config"
+			envs[i].Value = name + additionalPACControllerNameSuffix
 		}
 		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName != "" {
 			envs[i].Value = envInfo.ConfigMapName
 		}
-		if e.Name == "PAC_CONTROLLER_SECRET" && envInfo.SecretsName != "" {
-			envs[i].Value = envInfo.SecretsName
+		if e.Name == "PAC_CONTROLLER_SECRET" && envInfo.SecretName == "" {
+			envs[i].Value = name + additionalPACControllerNameSuffix
 		}
-		if e.Name == "PAC_CONTROLLER_LABEL" && envInfo.Name != "" {
-			envs[i].Value = envInfo.Name + additionalPACControllerSuffix
+		if e.Name == "PAC_CONTROLLER_SECRET" && envInfo.SecretName != "" {
+			envs[i].Value = envInfo.SecretName
+		}
+		if e.Name == "PAC_CONTROLLER_LABEL" {
+			envs[i].Value = name + additionalPACControllerNameSuffix
 		}
 	}
 	return envs
