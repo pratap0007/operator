@@ -126,18 +126,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	// if a installerset does not have above label then delete it
 	// how to find out the all label selector
 
-
-	for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+	for name, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
 		if pacInfo.ConfigMapName != "" {
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
-		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo)
+		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo, name)
 		if err != nil {
 			msg := fmt.Sprintf("Additional PACController Transformation is failed: %s", err.Error())
 			logger.Error(msg)
 		}
 
-		if err := r.installerSetClient.CustomSet(ctx, pac, pacInfo.Name, modifiedPACManifest, additionalControllerTransform(r.extension)); err != nil {
+		if err := r.installerSetClient.CustomSet(ctx, pac, name, modifiedPACManifest, additionalControllerTransform(r.extension)); err != nil {
 			msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
 			logger.Error(msg)
 			if err == v1alpha1.REQUEUE_EVENT_AFTER {
