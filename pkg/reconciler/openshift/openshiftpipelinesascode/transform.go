@@ -73,16 +73,15 @@ func filterAndTransform(extension common.Extension) client.FilterAndTransform {
 // additional pac controller config
 func additionalControllerTransform(extension common.Extension) client.FilterAndTransform {
 	return func(ctx context.Context, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent) (*mf.Manifest, error) {
-
 		return additionalPACManifest, nil
 	}
 }
 
-func additionalControllerTransformTest(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, addPACControllerConfig *v1alpha1.AdditionalPACControllerConfig) (*mf.Manifest, error) {
+func additionalControllerTransformTest(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, addPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
 
 	pac := comp.(*v1alpha1.OpenShiftPipelinesAsCode)
 	tfs := []mf.Transformer{
-		common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCodeAdditionalController + addPACControllerConfig.Name),
+		common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCodeAdditionalController + name),
 		updateAdditionControllerConfigMap(addPACControllerConfig),
 		updateAdditionControllerDeployment(addPACControllerConfig),
 		updateAdditionControllerService(addPACControllerConfig),
@@ -99,7 +98,23 @@ func additionalControllerTransformTest(ctx context.Context, extension common.Ext
 
 }
 
+// this will return the resources required by additionalPACController
+func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
+	// implement the whole logic for filtering
+
+	// we need pac controller deployment, service
+	// we need pac configmap
+	// we need route and servicemonitor
+
+	return manifest
+}
+
 func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+	// set the name
+	// set the namespace
+	// set the data from settings
+	// if name is same as default configmap, then dont apply settings
+
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "ConfigMap" {
 			return nil
