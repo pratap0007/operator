@@ -18,7 +18,6 @@ package openshiftpipelinesascode
 
 import (
 	"context"
-	"fmt"
 
 	mf "github.com/manifestival/manifestival"
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
@@ -203,9 +202,6 @@ func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACContro
 
 		var err error
 		u.SetName(name + additionalPACControllerNameSuffix)
-
-		fmt.Println("====", u.GetName())
-
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
 			"app": name + additionalPACControllerNameSuffix,
 		}, "spec", "selector", "matchLabels")
@@ -238,7 +234,7 @@ func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerCon
 			return err
 		}
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": name,
+			"app": name + additionalPACControllerNameSuffix,
 		}, "metadata", "labels")
 		if err != nil {
 			return err
@@ -268,7 +264,7 @@ func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfi
 		}
 
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": name,
+			"app": name + additionalPACControllerNameSuffix,
 		}, "metadata", "labels")
 		if err != nil {
 			return err
