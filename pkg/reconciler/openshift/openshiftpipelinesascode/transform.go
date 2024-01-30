@@ -70,19 +70,17 @@ func filterAndTransform(extension common.Extension) client.FilterAndTransform {
 	}
 }
 
-// additional pac controller config
-func additionalControllerTransform(extension common.Extension) client.FilterAndTransform {
-	return func(ctx context.Context, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent) (*mf.Manifest, error) {
-		return additionalPACManifest, nil
-	}
-}
-
-func additionalControllerTransformTest(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, additionalPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
+func additionalControllerTransform(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, additionalPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
 
 	pac := comp.(*v1alpha1.OpenShiftPipelinesAsCode)
+	images := common.ToLowerCaseKeys(common.ImagesFromEnv(common.PacImagePrefix))
 	tfs := []mf.Transformer{
 		mf.InjectNamespace("openshift-pipelines"),
-		// common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCodeAdditionalController + name),
+		common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCode),
+		common.DeploymentImages(images),
+		common.AddConfiguration(pac.Spec.Config),
+		occommon.ApplyCABundles,
+		occommon.UpdateServiceMonitorTargetNamespace(pac.Spec.TargetNamespace),
 		updateAdditionControllerConfigMap(additionalPACControllerConfig, name),
 		updateAdditionControllerDeployment(additionalPACControllerConfig, name),
 		updateAdditionControllerService(additionalPACControllerConfig, name),
@@ -92,6 +90,12 @@ func additionalControllerTransformTest(ctx context.Context, extension common.Ext
 
 	allTfs := append(tfs, extension.Transformers(pac)...)
 	if err := common.Transform(ctx, additionalPACManifest, pac, allTfs...); err != nil {
+		return &mf.Manifest{}, err
+	}
+
+	// additional options transformer
+	// always execute as last transformer, so that the values in options will be final update values on the manifests
+	if err := common.ExecuteAdditionalOptionsTransformer(ctx, additionalPACManifest, pac.Spec.GetTargetNamespace(), pac.Spec.Options); err != nil {
 		return &mf.Manifest{}, err
 	}
 
