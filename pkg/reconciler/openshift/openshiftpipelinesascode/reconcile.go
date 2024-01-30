@@ -126,7 +126,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	// if a installerset does not have above label then delete it
 	// how to find out the all label selector
 
-	for name, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
+	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
 
 		if pacInfo.ConfigMapName != "" && pacInfo.ConfigMapName != "pipelines-as-code" {
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
