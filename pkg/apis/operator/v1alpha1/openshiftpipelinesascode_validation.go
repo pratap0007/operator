@@ -44,5 +44,24 @@ func validatePACSetting(pacSettings PACSettings) *apis.FieldError {
 	if err := settings.Validate(pacSettings.Settings); err != nil {
 		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode"))
 	}
+
+	errs = errs.Also(validateAdditionalPACSetting(pacSettings.AdditionalPACControllers))
+
+	return errs
+}
+
+func validateAdditionalPACSetting(additionalPACController map[string]AdditionalPACControllerConfig) *apis.FieldError {
+	var errs *apis.FieldError
+	// name of controller should be smaller case
+
+	// name of configmap should be smaller case
+
+	// name of secret should be smaller case
+
+	// setting validation
+	if err := settings.Validate(additionalPACController["x"].Settings); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode"))
+	}
+
 	return errs
 }
