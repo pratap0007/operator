@@ -105,40 +105,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		return nil
 	}
 
-	// handles additional controller deletion logic
-
-	// matchLabels := map[string]string{}
-	// for _, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
-	// 	matchLabels[v1alpha1.InstallerSetType] = "custom-" + pacInfo.Name
-	// 	// matchLabels[v1alpha1.CreatedByKey] = v1alpha1.OpenShiftPipelinesAsCodeName
-	// }
-
-	// isLables := []metav1.LabelSelector{
-	// 	{MatchLabels: matchLabels},
-	// }
-
-	// additionalPACLabelSelector, err := common.LabelSelector(isLables[0])
-	// if err != nil {
-	// 	return err
-	// }
-
-	// find out the all pac additional installersets and filter based on the labels and if
-	// if a installerset does not have above label then delete it
-	// how to find out the all label selector
-
 	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
 
 		if pacInfo.ConfigMapName != "" && pacInfo.ConfigMapName != "pipelines-as-code" {
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
 
-		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo, name)
-		if err != nil {
-			msg := fmt.Sprintf("Additional PACController Transformation is failed: %s", err.Error())
-			logger.Error(msg)
-		}
-
-		if err := r.installerSetClient.CustomSet(ctx, pac, name, modifiedPACManifest, additionalControllerTransform(r.extension)); err != nil {
+		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension)); err != nil {
 			msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
 			logger.Error(msg)
 			if err == v1alpha1.REQUEUE_EVENT_AFTER {
