@@ -18,6 +18,7 @@ package openshiftpipelinesascode
 
 import (
 	"context"
+	"fmt"
 
 	mf "github.com/manifestival/manifestival"
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
@@ -99,7 +100,7 @@ func additionalControllerTransformTest(ctx context.Context, extension common.Ext
 
 }
 
-// this will return the resources required by additionalPACController
+// This returns all resources to deploy the additional PACController
 func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
 
 	filteredManifest := mf.Manifest{}
@@ -112,13 +113,14 @@ func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
 
 	cmManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code"), mf.ByKind("ConfigMap")))
 
-	serviceMonitorManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-monitor"), mf.ByKind("ServiceMonitor")))
+	serviceMonitorManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller-monitor"), mf.ByKind("ServiceMonitor")))
 
 	filteredManifest = filteredManifest.Append(cmManifest, deploymentManifest, serviceManifest, serviceMonitorManifest, routeManifest)
 
 	return filteredManifest
 }
 
+// This updates additional PACController configMap and sets settings data to configMap data
 func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	// set the name
 	// set the namespace
@@ -126,15 +128,13 @@ func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerC
 	// if name is same as default configmap, then dont apply settings
 
 	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "ConfigMap" {
+		if u.GetKind() != "ConfigMap" || u.GetName() == pipelinesAsCodeCM {
 			return nil
 		}
 
 		u.SetName(config.ConfigMapName)
 
-		// if ConfigMap name is not default, then updates the ConfigMap data from settings data
-
-		if u.GetKind() != "ConfigMap" || len(config.Settings) == 0 {
+		if len(config.Settings) == 0 {
 			return nil
 		}
 		cm := &corev1.ConfigMap{}
@@ -161,6 +161,7 @@ func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerC
 	}
 }
 
+// This updates additional PACController deployment
 func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Deployment" {
@@ -193,6 +194,7 @@ func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACController
 	}
 }
 
+// This updates additional PACController ServiceMonitor
 func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "ServiceMonitor" {
@@ -201,6 +203,8 @@ func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACContro
 
 		var err error
 		u.SetName(name + additionalPACControllerNameSuffix)
+
+		fmt.Println("====", u.GetName())
 
 		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
 			"app": name + additionalPACControllerNameSuffix,
@@ -218,6 +222,7 @@ func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACContro
 	}
 }
 
+// This updates additional PACController Service
 func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Service" {
@@ -249,6 +254,7 @@ func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerCon
 	}
 }
 
+// This updates additional PACController route
 func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Route" {
@@ -279,6 +285,7 @@ func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfi
 	}
 }
 
+// This replaces additional PACController deployment's container env
 func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo *v1alpha1.AdditionalPACControllerConfig, name string) []corev1.EnvVar {
 	for i, e := range envs {
 		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName == "" {
