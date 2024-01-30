@@ -127,9 +127,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	// how to find out the all label selector
 
 	for name, pacInfo := range pac.Spec.AdditionalPACControllerSpec {
-		if pacInfo.ConfigMapName != "" {
+
+		if pacInfo.ConfigMapName != "" && pacInfo.ConfigMapName != "pipelines-as-code" {
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
+
 		modifiedPACManifest, err := additionalControllerTransformTest(ctx, r.extension, &r.additionalPACManifest, pac, &pacInfo, name)
 		if err != nil {
 			msg := fmt.Sprintf("Additional PACController Transformation is failed: %s", err.Error())
