@@ -27,6 +27,7 @@ func (pac *OpenShiftPipelinesAsCode) SetDefaults(ctx context.Context) {
 		pac.Spec.PACSettings.Settings = map[string]string{}
 	}
 	setPACDefaults(pac.Spec.PACSettings)
+	setAdditionalPACCOntrollerDefault(pac.Spec.AdditionalPACControllers)
 }
 
 func setPACDefaults(set PACSettings) {
@@ -34,4 +35,13 @@ func setPACDefaults(set PACSettings) {
 		set.Settings = map[string]string{}
 	}
 	settings.SetDefaults(set.Settings)
+}
+
+func setAdditionalPACCOntrollerDefault(additionalPACController map[string]AdditionalPACControllerConfig) {
+	// write the logic for defaulting the configmap setting
+	value := additionalPACController["x"]
+	settings.SetDefaults(value.Settings)
+	additionalPACController["x"] = value
+
+	// add defau
 }
