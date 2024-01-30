@@ -18,8 +18,10 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"knative.dev/pkg/apis"
 )
 
@@ -52,16 +54,42 @@ func validatePACSetting(pacSettings PACSettings) *apis.FieldError {
 
 func validateAdditionalPACSetting(additionalPACController map[string]AdditionalPACControllerConfig) *apis.FieldError {
 	var errs *apis.FieldError
-	// name of controller should be smaller case
+	for name, additionalPACInfo := range additionalPACController {
 
-	// name of configmap should be smaller case
+		if err := validateName(name); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+		}
 
-	// name of secret should be smaller case
+		if err := validateName(additionalPACInfo.ConfigMapName); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+		}
 
-	// setting validation
-	if err := settings.Validate(additionalPACController["x"].Settings); err != nil {
-		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode"))
+		if err := validateName(additionalPACInfo.SecretName); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+		}
+
+		if err := settings.Validate(additionalPACInfo.Settings); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+		}
 	}
 
 	return errs
+}
+
+// validates the name of the resource is valid kubernetes name
+func validateName(name string) *apis.FieldError {
+	if err := validation.IsDNS1123Subdomain(name); len(err) > 0 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid resource name %q: must be a valid DNS label", name),
+			Paths:   []string{"name"},
+		}
+	}
+
+	if len(name) > validation.DNS1123LabelMaxLength {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("Invalid resource name %q: length must be no more than 63 characters", name),
+			Paths:   []string{"name"},
+		}
+	}
+	return nil
 }
