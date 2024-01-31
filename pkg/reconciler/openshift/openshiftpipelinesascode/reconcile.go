@@ -19,6 +19,7 @@ package openshiftpipelinesascode
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	mf "github.com/manifestival/manifestival"
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
@@ -26,14 +27,15 @@ import (
 	pacreconciler "github.com/tektoncd/operator/pkg/client/injection/reconciler/operator/v1alpha1/openshiftpipelinesascode"
 	"github.com/tektoncd/operator/pkg/reconciler/common"
 	"github.com/tektoncd/operator/pkg/reconciler/kubernetes/tektoninstallerset/client"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 )
 
 const (
 	// installerset label
-	installerSetLabelCreatedByValue         = "AdditionalPACController"
-	additionalPACControllerInstallerSetName = "PACController"
+	additionalPACControllerLabelValue = "AdditionalPACController"
 )
 
 // Reconciler implements controller.Reconciler for OpenShiftPipelinesAsCode resources.
@@ -111,8 +113,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
 
-		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension)); err != nil {
-			msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
+		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension), additionalPacControllerLabels()); err != nil {
+			msg := fmt.Sprintf("Additional PACController %s Reconciliation failed: %s", name, err.Error())
 			logger.Error(msg)
 			if err == v1alpha1.REQUEUE_EVENT_AFTER {
 				return err
@@ -120,7 +122,32 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 			pac.Status.MarkInstallerSetNotReady(msg)
 			return nil
 		}
+	}
 
+	// Handle the deletion of obsolute installersets of additionalController
+	labelSelector := additionalPacControllerLabelSelector()
+	logger.Infof("checking installer sets with labels: %v", labelSelector)
+	is, err := r.installerSetClient.ListCustomSet(ctx, labelSelector)
+	if err != nil {
+		msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
+		logger.Error(msg)
+		if err == v1alpha1.REQUEUE_EVENT_AFTER {
+			return err
+		}
+	}
+	for _, i := range is.Items {
+		// get the label of set Type
+		setTypeValue := i.GetLabels()[v1alpha1.InstallerSetType]
+		// remove the prefix custom-
+		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf(client.InstallerTypeCustom+"-"))
+		// check if the name exist in additionalPac Controller
+		_, ok := pac.Spec.AdditionalPACControllers[name]
+		// if not, delete the installerset
+		if !ok {
+			if err := r.installerSetClient.CleanupCustomSet(ctx, setTypeValue); err != nil {
+				return err
+			}
+		}
 	}
 
 	if err := r.extension.PostReconcile(ctx, pac); err != nil {
@@ -136,4 +163,23 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	// Mark PostReconcile Complete
 	pac.Status.MarkPostReconcilerComplete()
 	return nil
+}
+
+func additionalPacControllerLabels() map[string]string {
+	labels := map[string]string{}
+	labels[v1alpha1.ComponentKey] = additionalPACControllerLabelValue
+	return labels
+}
+
+func additionalPacControllerLabelSelector() string {
+	labelSelector := labels.NewSelector()
+	createdReq, _ := labels.NewRequirement(v1alpha1.CreatedByKey, selection.Equals, []string{v1alpha1.KindOpenShiftPipelinesAsCode})
+	if createdReq != nil {
+		labelSelector = labelSelector.Add(*createdReq)
+	}
+	componentReq, _ := labels.NewRequirement(v1alpha1.ComponentKey, selection.Equals, []string{additionalPACControllerLabelValue})
+	if componentReq != nil {
+		labelSelector = labelSelector.Add(*componentReq)
+	}
+	return labelSelector.String()
 }
