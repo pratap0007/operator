@@ -39,7 +39,7 @@ func TestUpdateAdditionControllerDeployment(t *testing.T) {
 		ConfigMapName: "test-configmap",
 		SecretName:    "test-secret",
 	}
-	updatedDeployment, err := manifest.Transform(updateAdditionControllerDeployment(&additionalPACConfig, "test"))
+	updatedDeployment, err := manifest.Transform(updateAdditionControllerDeployment(additionalPACConfig, "test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedDeployment.Resources()[0].GetName(), "test-controller")
 
@@ -75,7 +75,7 @@ func TestUpdateAdditionControllerService(t *testing.T) {
 		ConfigMapName: "test-configmap",
 		SecretName:    "test-secret",
 	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerService(&additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerService(additionalPACConfig, "test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
 }
@@ -90,7 +90,7 @@ func TestUpdateAdditionControllerRoute(t *testing.T) {
 		ConfigMapName: "test-configmap",
 		SecretName:    "test-secret",
 	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerRoute(&additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerRoute(additionalPACConfig, "test"))
 	if err != nil {
 		assert.NilError(t, err)
 	}
@@ -127,7 +127,7 @@ func TestUpdateAdditionControllerServiceMonitor(t *testing.T) {
 		ConfigMapName: "test-configmap",
 		SecretName:    "test-secret",
 	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerServiceMonitor(&additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerServiceMonitor(additionalPACConfig, "test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
 }
@@ -142,7 +142,7 @@ func TestUpdateAdditionControllerConfigMapWithDefaultCM(t *testing.T) {
 		ConfigMapName: "",
 		SecretName:    "test-secret",
 	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(&additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig, "test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "pipelines-as-code")
 }
@@ -158,7 +158,7 @@ func TestUpdateAdditionControllerConfigMap(t *testing.T) {
 		Settings:      map[string]string{"application-name": "Test CI application", "hub-url": "https://custom-hub.com"},
 	}
 
-	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(&additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig, "test"))
 	if err != nil {
 		assert.NilError(t, err)
 	}

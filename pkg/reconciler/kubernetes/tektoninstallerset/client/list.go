@@ -32,10 +32,8 @@ func (i *InstallerSetClient) ListCustomSet(ctx context.Context, labelSelector st
 	if err != nil {
 		return nil, err
 	}
-
 	if len(is.Items) == 0 {
 		logger.Infof("%v: no installer sets found with labels: %v", i.resourceKind, labelSelector)
-		return nil, ErrNotFound
 	}
 	return is, nil
 }
