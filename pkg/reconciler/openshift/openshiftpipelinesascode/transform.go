@@ -31,8 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const pipelinesAsCodeCM = "pipelines-as-code"
-const additionalPACControllerNameSuffix = "-controller"
+const (
+	pipelinesAsCodeCM                 = "pipelines-as-code"
+	additionalPACControllerNameSuffix = "-controller"
+)
 
 // const additionPACControllerConfigMap = "addition-pac"
 
@@ -70,37 +72,40 @@ func filterAndTransform(extension common.Extension) client.FilterAndTransform {
 	}
 }
 
-func additionalControllerTransform(ctx context.Context, extension common.Extension, additionalPACManifest *mf.Manifest, comp v1alpha1.TektonComponent, additionalPACControllerConfig *v1alpha1.AdditionalPACControllerConfig, name string) (*mf.Manifest, error) {
+func additionalControllerTransform(extension common.Extension, name string) client.FilterAndTransform {
+	return func(ctx context.Context, manifest *mf.Manifest, comp v1alpha1.TektonComponent) (*mf.Manifest, error) {
+		pac := comp.(*v1alpha1.OpenShiftPipelinesAsCode)
+		additionalPACControllerConfig := pac.Spec.PACSettings.AdditionalPACControllers[name]
 
-	pac := comp.(*v1alpha1.OpenShiftPipelinesAsCode)
-	images := common.ToLowerCaseKeys(common.ImagesFromEnv(common.PacImagePrefix))
-	tfs := []mf.Transformer{
-		mf.InjectNamespace("openshift-pipelines"),
-		common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCode),
-		common.DeploymentImages(images),
-		common.AddConfiguration(pac.Spec.Config),
-		occommon.ApplyCABundles,
-		occommon.UpdateServiceMonitorTargetNamespace(pac.Spec.TargetNamespace),
-		updateAdditionControllerConfigMap(additionalPACControllerConfig, name),
-		updateAdditionControllerDeployment(additionalPACControllerConfig, name),
-		updateAdditionControllerService(additionalPACControllerConfig, name),
-		updateAdditionControllerServiceMonitor(additionalPACControllerConfig, name),
-		updateAdditionControllerRoute(additionalPACControllerConfig, name),
+		images := common.ToLowerCaseKeys(common.ImagesFromEnv(common.PacImagePrefix))
+		// Run transformers
+		tfs := []mf.Transformer{
+			common.InjectOperandNameLabelOverwriteExisting(openshift.OperandOpenShiftPipelineAsCode),
+			common.DeploymentImages(images),
+			common.AddConfiguration(pac.Spec.Config),
+			occommon.ApplyCABundles,
+			common.CopyConfigMap(pipelinesAsCodeCM, pac.Spec.Settings),
+			occommon.UpdateServiceMonitorTargetNamespace(pac.Spec.TargetNamespace),
+			updateAdditionControllerConfigMap(additionalPACControllerConfig, name),
+			updateAdditionControllerDeployment(additionalPACControllerConfig, name),
+			updateAdditionControllerService(additionalPACControllerConfig, name),
+			updateAdditionControllerServiceMonitor(additionalPACControllerConfig, name),
+			updateAdditionControllerRoute(additionalPACControllerConfig, name),
+		}
+
+		allTfs := append(tfs, extension.Transformers(pac)...)
+		if err := common.Transform(ctx, manifest, pac, allTfs...); err != nil {
+			return &mf.Manifest{}, err
+		}
+
+		// additional options transformer
+		// always execute as last transformer, so that the values in options will be final update values on the manifests
+		if err := common.ExecuteAdditionalOptionsTransformer(ctx, manifest, pac.Spec.GetTargetNamespace(), pac.Spec.Options); err != nil {
+			return &mf.Manifest{}, err
+		}
+
+		return manifest, nil
 	}
-
-	allTfs := append(tfs, extension.Transformers(pac)...)
-	if err := common.Transform(ctx, additionalPACManifest, pac, allTfs...); err != nil {
-		return &mf.Manifest{}, err
-	}
-
-	// additional options transformer
-	// always execute as last transformer, so that the values in options will be final update values on the manifests
-	if err := common.ExecuteAdditionalOptionsTransformer(ctx, additionalPACManifest, pac.Spec.GetTargetNamespace(), pac.Spec.Options); err != nil {
-		return &mf.Manifest{}, err
-	}
-
-	return additionalPACManifest, nil
-
 }
 
 // This returns all resources to deploy the additional PACController
@@ -124,14 +129,14 @@ func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
 }
 
 // This updates additional PACController configMap and sets settings data to configMap data
-func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerConfigMap(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	// set the name
 	// set the namespace
 	// set the data from settings
 	// if name is same as default configmap, then dont apply settings
 
 	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "ConfigMap" || u.GetName() == pipelinesAsCodeCM {
+		if u.GetKind() != "ConfigMap" || config.ConfigMapName == pipelinesAsCodeCM {
 			return nil
 		}
 
@@ -165,7 +170,7 @@ func updateAdditionControllerConfigMap(config *v1alpha1.AdditionalPACControllerC
 }
 
 // This updates additional PACController deployment
-func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Deployment" {
 			return nil
@@ -198,7 +203,7 @@ func updateAdditionControllerDeployment(config *v1alpha1.AdditionalPACController
 }
 
 // This updates additional PACController ServiceMonitor
-func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerServiceMonitor(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "ServiceMonitor" {
 			return nil
@@ -223,7 +228,7 @@ func updateAdditionControllerServiceMonitor(config *v1alpha1.AdditionalPACContro
 }
 
 // This updates additional PACController Service
-func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerService(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Service" {
 			return nil
@@ -255,7 +260,7 @@ func updateAdditionControllerService(config *v1alpha1.AdditionalPACControllerCon
 }
 
 // This updates additional PACController route
-func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerRoute(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "Route" {
 			return nil
@@ -286,7 +291,7 @@ func updateAdditionControllerRoute(config *v1alpha1.AdditionalPACControllerConfi
 }
 
 // This replaces additional PACController deployment's container env
-func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo *v1alpha1.AdditionalPACControllerConfig, name string) []corev1.EnvVar {
+func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo v1alpha1.AdditionalPACControllerConfig, name string) []corev1.EnvVar {
 	for i, e := range envs {
 		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName == "" {
 			envs[i].Value = name + additionalPACControllerNameSuffix
