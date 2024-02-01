@@ -109,11 +109,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 
 	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
 
-		if pacInfo.ConfigMapName != "" && pacInfo.ConfigMapName != "pipelines-as-code" {
+		if pacInfo.ConfigMapName == pipelinesAsCodeCM {
 			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
 
-		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension), additionalPacControllerLabels()); err != nil {
+		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension, name), additionalPacControllerLabels()); err != nil {
 			msg := fmt.Sprintf("Additional PACController %s Reconciliation failed: %s", name, err.Error())
 			logger.Error(msg)
 			if err == v1alpha1.REQUEUE_EVENT_AFTER {
@@ -141,14 +141,16 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		// remove the prefix custom-
 		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf(client.InstallerTypeCustom+"-"))
 		// check if the name exist in additionalPac Controller
-		_, ok := pac.Spec.AdditionalPACControllers[name]
+		_, ok := pac.Spec.PACSettings.AdditionalPACControllers[name]
 		// if not, delete the installerset
 		if !ok {
-			if err := r.installerSetClient.CleanupCustomSet(ctx, setTypeValue); err != nil {
+			if err := r.installerSetClient.CleanupCustomSet(ctx, name); err != nil {
 				return err
 			}
 		}
 	}
+
+	pac.Status.MarkAdditionalPACControllerComplete()
 
 	if err := r.extension.PostReconcile(ctx, pac); err != nil {
 		msg := fmt.Sprintf("PostReconciliation failed: %s", err.Error())
