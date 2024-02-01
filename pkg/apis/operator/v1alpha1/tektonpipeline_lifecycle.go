@@ -26,9 +26,6 @@ const (
 	InstallerSetAvailable apis.ConditionType = "InstallerSetAvailable"
 	InstallerSetReady     apis.ConditionType = "InstallerSetReady"
 	PostReconciler        apis.ConditionType = "PostReconciler"
-	AdditionalPACControllerInstallerSetAvailable = "AdditionalPACControllerInstallerSetAvailable"
-	AdditionalPACControllerInstallerSetReady = "AdditionalPACControllerInstallerSetReady"
-
 )
 
 var (

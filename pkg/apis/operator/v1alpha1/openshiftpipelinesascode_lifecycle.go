@@ -29,8 +29,13 @@ var (
 		PreReconciler,
 		InstallerSetAvailable,
 		InstallerSetReady,
+		AdditionalPACControllerInstalled,
 		PostReconciler,
 	)
+)
+
+const (
+	AdditionalPACControllerInstalled apis.ConditionType = "AdditionalPACControllerInstalled"
 )
 
 func (pac *OpenShiftPipelinesAsCode) GroupVersionKind() schema.GroupVersionKind {
@@ -61,16 +66,12 @@ func (pac *OpenShiftPipelinesAsCodeStatus) MarkInstallerSetAvailable() {
 	opacCondSet.Manage(pac).MarkTrue(InstallerSetAvailable)
 }
 
-func (pac *OpenShiftPipelinesAsCodeStatus) MarkAdditionalPACControllerReady() {
-	opacCondSet.Manage(pac).MarkTrue(AdditionalPACControllerInstallerSetReady)
-}
-
-func (pac *OpenShiftPipelinesAsCodeStatus) MarkAdditionalPACControllerAvailable() {
-	opacCondSet.Manage(pac).MarkTrue(AdditionalPACControllerInstallerSetAvailable)
-}
-
 func (pac *OpenShiftPipelinesAsCodeStatus) MarkInstallerSetReady() {
 	opacCondSet.Manage(pac).MarkTrue(InstallerSetReady)
+}
+
+func (pac *OpenShiftPipelinesAsCodeStatus) MarkAdditionalPACControllerComplete() {
+	opacCondSet.Manage(pac).MarkTrue(AdditionalPACControllerInstalled)
 }
 
 func (pac *OpenShiftPipelinesAsCodeStatus) MarkPostReconcilerComplete() {

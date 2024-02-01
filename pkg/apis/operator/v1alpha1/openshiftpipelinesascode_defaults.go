@@ -26,15 +26,18 @@ func (pac *OpenShiftPipelinesAsCode) SetDefaults(ctx context.Context) {
 	if pac.Spec.PACSettings.Settings == nil {
 		pac.Spec.PACSettings.Settings = map[string]string{}
 	}
-	setPACDefaults(pac.Spec.PACSettings)
-	setAdditionalPACControllerDefault(pac.Spec.PACSettings.AdditionalPACControllers)
+	if pac.Spec.PACSettings.AdditionalPACControllers == nil {
+		pac.Spec.PACSettings.AdditionalPACControllers = map[string]AdditionalPACControllerConfig{}
+	}
+	pac.Spec.PACSettings.setPACDefaults()
 }
 
-func setPACDefaults(set PACSettings) {
+func (set *PACSettings) setPACDefaults() {
 	if set.Settings == nil {
 		set.Settings = map[string]string{}
 	}
 	settings.SetDefaults(set.Settings)
+	setAdditionalPACControllerDefault(set.AdditionalPACControllers)
 }
 
 // Set the default values for additional PAc controller resources
@@ -53,5 +56,6 @@ func setAdditionalPACControllerDefault(additionalPACController map[string]Additi
 		if additionalPACInfo.SecretName == "" {
 			additionalPACInfo.SecretName = name + "-secret"
 		}
+		additionalPACController[name] = additionalPACInfo
 	}
 }
