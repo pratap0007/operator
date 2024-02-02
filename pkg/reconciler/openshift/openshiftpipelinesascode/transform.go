@@ -20,6 +20,7 @@ import (
 	"context"
 
 	mf "github.com/manifestival/manifestival"
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
 	"github.com/tektoncd/operator/pkg/reconciler/common"
 	"github.com/tektoncd/operator/pkg/reconciler/kubernetes/tektoninstallerset/client"
@@ -35,8 +36,6 @@ const (
 	pipelinesAsCodeCM                 = "pipelines-as-code"
 	additionalPACControllerNameSuffix = "-controller"
 )
-
-// const additionPACControllerConfigMap = "addition-pac"
 
 func filterAndTransform(extension common.Extension) client.FilterAndTransform {
 	return func(ctx context.Context, manifest *mf.Manifest, comp v1alpha1.TektonComponent) (*mf.Manifest, error) {
@@ -84,13 +83,12 @@ func additionalControllerTransform(extension common.Extension, name string) clie
 			common.DeploymentImages(images),
 			common.AddConfiguration(pac.Spec.Config),
 			occommon.ApplyCABundles,
-			common.CopyConfigMap(pipelinesAsCodeCM, pac.Spec.Settings),
 			occommon.UpdateServiceMonitorTargetNamespace(pac.Spec.TargetNamespace),
-			updateAdditionControllerConfigMap(additionalPACControllerConfig, name),
 			updateAdditionControllerDeployment(additionalPACControllerConfig, name),
-			updateAdditionControllerService(additionalPACControllerConfig, name),
-			updateAdditionControllerServiceMonitor(additionalPACControllerConfig, name),
-			updateAdditionControllerRoute(additionalPACControllerConfig, name),
+			updateAdditionControllerService(name),
+			updateAdditionControllerConfigMap(additionalPACControllerConfig),
+			updateAdditionControllerRoute(name),
+			updateAdditionControllerServiceMonitor(name),
 		}
 
 		allTfs := append(tfs, extension.Transformers(pac)...)
@@ -108,35 +106,112 @@ func additionalControllerTransform(extension common.Extension, name string) clie
 	}
 }
 
-// This returns all resources to deploy the additional PACController
+// This returns all resources to deploy for the additional PACController
 func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
 
-	filteredManifest := mf.Manifest{}
-
+	// filter deployment
 	deploymentManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Deployment")))
 
+	// filter service
 	serviceManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Service")))
 
+	// filter route
 	routeManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Route")))
 
+	// filter configmap
 	cmManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code"), mf.ByKind("ConfigMap")))
 
+	// filter serviceMOnitor
 	serviceMonitorManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller-monitor"), mf.ByKind("ServiceMonitor")))
 
+	filteredManifest := mf.Manifest{}
 	filteredManifest = filteredManifest.Append(cmManifest, deploymentManifest, serviceManifest, serviceMonitorManifest, routeManifest)
-
 	return filteredManifest
 }
 
-// This updates additional PACController configMap and sets settings data to configMap data
-func updateAdditionControllerConfigMap(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
-	// set the name
-	// set the namespace
-	// set the data from settings
-	// if name is same as default configmap, then dont apply settings
-
+// This updates additional PACController deployment
+func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "ConfigMap" || config.ConfigMapName == pipelinesAsCodeCM {
+		if u.GetKind() != "Deployment" {
+			return nil
+		}
+
+		u.SetName(name + additionalPACControllerNameSuffix)
+
+		d := &appsv1.Deployment{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, d)
+		if err != nil {
+			return err
+		}
+
+		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+
+		d.Spec.Template.Labels["app"] = name + additionalPACControllerNameSuffix
+		d.Spec.Template.Labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+
+		for i, container := range d.Spec.Template.Spec.Containers {
+			container.Name = name + additionalPACControllerNameSuffix
+			containerEnvs := d.Spec.Template.Spec.Containers[i].Env
+			d.Spec.Template.Spec.Containers[i].Env = replaceEnvInDeployment(containerEnvs, config, name)
+			d.Spec.Template.Spec.Containers[i] = container
+		}
+
+		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(d)
+		if err != nil {
+			return err
+		}
+		u.SetUnstructuredContent(unstrObj)
+
+		return nil
+	}
+}
+
+// This updates additional PACController Service
+func updateAdditionControllerService(name string) mf.Transformer {
+	return func(u *unstructured.Unstructured) error {
+		if u.GetKind() != "Service" {
+			return nil
+		}
+		u.SetName(name + additionalPACControllerNameSuffix)
+
+		service := &corev1.Service{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, service)
+		if err != nil {
+			return err
+		}
+
+		labels := service.Labels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels["app"] = name + additionalPACControllerNameSuffix
+		labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		service.SetLabels(labels)
+
+		labelSelector := service.Spec.Selector
+		if labelSelector == nil {
+			labelSelector = map[string]string{}
+		}
+		labelSelector["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		service.Spec.Selector = labelSelector
+
+		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
+		if err != nil {
+			return err
+		}
+
+		u.SetUnstructuredContent(unstrObj)
+		return nil
+	}
+}
+
+// This updates additional PACController configMap and sets settings data to configMap data
+func updateAdditionControllerConfigMap(config v1alpha1.AdditionalPACControllerConfig) mf.Transformer {
+	return func(u *unstructured.Unstructured) error {
+		// set the name
+		// set the namespace
+		// set the data from settings
+		if u.GetKind() != "ConfigMap" {
 			return nil
 		}
 
@@ -169,33 +244,34 @@ func updateAdditionControllerConfigMap(config v1alpha1.AdditionalPACControllerCo
 	}
 }
 
-// This updates additional PACController deployment
-func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+// This updates additional PACController route
+func updateAdditionControllerRoute(name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "Deployment" {
+		if u.GetKind() != "Route" {
 			return nil
 		}
-
 		u.SetName(name + additionalPACControllerNameSuffix)
 
-		d := &appsv1.Deployment{}
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, d)
+		route := &routev1.Route{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, route)
 		if err != nil {
 			return err
 		}
 
-		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		route.Spec.To.Name = name + additionalPACControllerNameSuffix
+		labels := route.Labels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels["app"] = name + additionalPACControllerNameSuffix
+		labels["pipelines-as-code/route"] = name + additionalPACControllerNameSuffix
+		route.SetLabels(labels)
 
-		d.Spec.Template.Labels["app"] = name + additionalPACControllerNameSuffix
-		d.Spec.Template.Labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
-
-		d.Spec.Template.Spec.Containers[0].Name = name + additionalPACControllerNameSuffix
-		containerEnvs := d.Spec.Template.Spec.Containers[0].Env
-		d.Spec.Template.Spec.Containers[0].Env = replaceEnvInDeployment(containerEnvs, config, name)
-		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(d)
+		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(route)
 		if err != nil {
 			return err
 		}
+
 		u.SetUnstructuredContent(unstrObj)
 
 		return nil
@@ -203,89 +279,19 @@ func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerC
 }
 
 // This updates additional PACController ServiceMonitor
-func updateAdditionControllerServiceMonitor(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
+func updateAdditionControllerServiceMonitor(name string) mf.Transformer {
 	return func(u *unstructured.Unstructured) error {
 		if u.GetKind() != "ServiceMonitor" {
 			return nil
 		}
 
-		var err error
 		u.SetName(name + additionalPACControllerNameSuffix)
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
+		err := unstructured.SetNestedMap(u.Object, map[string]interface{}{
 			"app": name + additionalPACControllerNameSuffix,
 		}, "spec", "selector", "matchLabels")
 		if err != nil {
 			return err
 		}
-
-		err = unstructured.SetNestedStringSlice(u.Object, []string{"openshift-pipelines"},
-			"spec", "namespaceSelector", "matchNames")
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-}
-
-// This updates additional PACController Service
-func updateAdditionControllerService(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
-	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "Service" {
-			return nil
-		}
-		var err error
-		u.SetName(name + additionalPACControllerNameSuffix)
-
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app.kubernetes.io/name": name + additionalPACControllerNameSuffix,
-		}, "spec", "selector")
-		if err != nil {
-			return err
-		}
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": name + additionalPACControllerNameSuffix,
-		}, "metadata", "labels")
-		if err != nil {
-			return err
-		}
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app.kubernetes.io/name": name + additionalPACControllerNameSuffix,
-		}, "metadata", "labels")
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-}
-
-// This updates additional PACController route
-func updateAdditionControllerRoute(config v1alpha1.AdditionalPACControllerConfig, name string) mf.Transformer {
-	return func(u *unstructured.Unstructured) error {
-		if u.GetKind() != "Route" {
-			return nil
-		}
-		var err error
-		u.SetName(name + additionalPACControllerNameSuffix)
-		err = unstructured.SetNestedField(u.Object, name+additionalPACControllerNameSuffix, "spec", "to", "name")
-		if err != nil {
-			return err
-		}
-
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": name + additionalPACControllerNameSuffix,
-		}, "metadata", "labels")
-		if err != nil {
-			return err
-		}
-
-		err = unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"pipelines-as-code/route": name + additionalPACControllerNameSuffix,
-		}, "metadata", "labels")
-		if err != nil {
-			return err
-		}
-
 		return nil
 	}
 }
@@ -293,16 +299,10 @@ func updateAdditionControllerRoute(config v1alpha1.AdditionalPACControllerConfig
 // This replaces additional PACController deployment's container env
 func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo v1alpha1.AdditionalPACControllerConfig, name string) []corev1.EnvVar {
 	for i, e := range envs {
-		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName == "" {
-			envs[i].Value = name + additionalPACControllerNameSuffix
-		}
-		if e.Name == "PAC_CONTROLLER_CONFIGMAP" && envInfo.ConfigMapName != "" {
+		if e.Name == "PAC_CONTROLLER_CONFIGMAP" {
 			envs[i].Value = envInfo.ConfigMapName
 		}
-		if e.Name == "PAC_CONTROLLER_SECRET" && envInfo.SecretName == "" {
-			envs[i].Value = name + additionalPACControllerNameSuffix
-		}
-		if e.Name == "PAC_CONTROLLER_SECRET" && envInfo.SecretName != "" {
+		if e.Name == "PAC_CONTROLLER_SECRET" {
 			envs[i].Value = envInfo.SecretName
 		}
 		if e.Name == "PAC_CONTROLLER_LABEL" {
