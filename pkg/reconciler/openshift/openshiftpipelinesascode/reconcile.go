@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	// installerset label
-	additionalPACControllerLabelValue = "AdditionalPACController"
+	// additionalPACController installerset label value
+	additionalPACControllerComponentLabelValue = "AdditionalPACController"
 )
 
 // Reconciler implements controller.Reconciler for OpenShiftPipelinesAsCode resources.
@@ -54,8 +54,6 @@ type Reconciler struct {
 	// additionalPAC is the source of manifest for the additional Openshift Pipelines As Code Controller
 	additionalPACManifest mf.Manifest
 }
-
-const AdditionalPACControllerCustomType = "additional-pac-controller"
 
 // Check that our Reconciler implements controller.Reconciler
 var _ pacreconciler.Interface = (*Reconciler)(nil)
@@ -108,12 +106,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	}
 
 	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
-
+		additionalPACControllerManifest := r.additionalPACManifest
 		if pacInfo.ConfigMapName == pipelinesAsCodeCM {
-			r.additionalPACManifest = r.additionalPACManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
+			additionalPACControllerManifest = additionalPACControllerManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
 
-		if err := r.installerSetClient.CustomSet(ctx, pac, name, &r.additionalPACManifest, additionalControllerTransform(r.extension, name), additionalPacControllerLabels()); err != nil {
+		if err := r.installerSetClient.CustomSet(ctx, pac, name, &additionalPACControllerManifest, additionalControllerTransform(r.extension, name), additionalPacControllerLabels()); err != nil {
 			msg := fmt.Sprintf("Additional PACController %s Reconciliation failed: %s", name, err.Error())
 			logger.Error(msg)
 			if err == v1alpha1.REQUEUE_EVENT_AFTER {
@@ -169,7 +167,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 
 func additionalPacControllerLabels() map[string]string {
 	labels := map[string]string{}
-	labels[v1alpha1.ComponentKey] = additionalPACControllerLabelValue
+	labels[v1alpha1.ComponentKey] = additionalPACControllerComponentLabelValue
 	return labels
 }
 
@@ -179,7 +177,7 @@ func additionalPacControllerLabelSelector() string {
 	if createdReq != nil {
 		labelSelector = labelSelector.Add(*createdReq)
 	}
-	componentReq, _ := labels.NewRequirement(v1alpha1.ComponentKey, selection.Equals, []string{additionalPACControllerLabelValue})
+	componentReq, _ := labels.NewRequirement(v1alpha1.ComponentKey, selection.Equals, []string{additionalPACControllerComponentLabelValue})
 	if componentReq != nil {
 		labelSelector = labelSelector.Add(*componentReq)
 	}

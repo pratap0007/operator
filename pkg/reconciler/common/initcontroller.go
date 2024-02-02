@@ -118,10 +118,6 @@ func (ctrl Controller) fetchSourceManifests(ctx context.Context, opts PayloadOpt
 	case "pipelines-as-code":
 		pacLocation := filepath.Join(os.Getenv(KoEnvKey), "tekton-addon", "pipelines-as-code")
 		return AppendManifest(ctrl.Manifest, pacLocation)
-
-	case "pac-additional-controller":
-		additionalPacLocation := filepath.Join(os.Getenv(KoEnvKey), "static", "pipelines-as-code")
-		return AppendManifest(ctrl.Manifest, additionalPacLocation)
 	}
 
 	return nil
