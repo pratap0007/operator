@@ -76,6 +76,5 @@ func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testi
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Additional PACController CI")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-name"], "custom")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-url"], "https://custom.com")
-
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["remember-ok-to-test"], "true")
 }
