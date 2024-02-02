@@ -77,7 +77,7 @@ type PACSettings struct {
 	Options AdditionalOptions `json:"options"`
 }
 
-// This contains AdditionalPACControllerConfig
+// AdditionalPACControllerConfig contains config for additionalPACControllers
 type AdditionalPACControllerConfig struct {
 	// Name of the additional controller configMap
 	// +optional
