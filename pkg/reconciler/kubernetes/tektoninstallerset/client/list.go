@@ -19,7 +19,6 @@ import (
 	"context"
 
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/logging"
 )
