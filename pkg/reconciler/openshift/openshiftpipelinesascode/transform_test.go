@@ -1,3 +1,19 @@
+/*
+Copyright 2024 The Tekton Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package openshiftpipelinesascode
 
 import (
@@ -24,9 +40,7 @@ func TestFilterAdditionalControllerManifest(t *testing.T) {
 	assert.DeepEqual(t, len(filteredManifest.Resources()), 5)
 
 	deployment := filteredManifest.Filter(mf.All(mf.ByKind("Deployment")))
-
 	assert.DeepEqual(t, deployment.Resources()[0].GetName(), "pipelines-as-code-controller")
-
 }
 
 func TestUpdateAdditionControllerDeployment(t *testing.T) {
@@ -71,11 +85,7 @@ func TestUpdateAdditionControllerService(t *testing.T) {
 	assert.NilError(t, err)
 	manifest = manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Service")))
 
-	additionalPACConfig := v1alpha1.AdditionalPACControllerConfig{
-		ConfigMapName: "test-configmap",
-		SecretName:    "test-secret",
-	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerService(additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerService("test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
 }
@@ -86,11 +96,7 @@ func TestUpdateAdditionControllerRoute(t *testing.T) {
 	assert.NilError(t, err)
 	manifest = manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Route")))
 
-	additionalPACConfig := v1alpha1.AdditionalPACControllerConfig{
-		ConfigMapName: "test-configmap",
-		SecretName:    "test-secret",
-	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerRoute(additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerRoute("test"))
 	if err != nil {
 		assert.NilError(t, err)
 	}
@@ -100,7 +106,6 @@ func TestUpdateAdditionControllerRoute(t *testing.T) {
 	if err != nil {
 		assert.NilError(t, err)
 	}
-
 	expectedData := path.Join("testdata", "test-expected-additional-pac-route.yaml")
 	expectedManifest, err := mf.ManifestFrom(mf.Recursive(expectedData))
 	assert.NilError(t, err)
@@ -123,11 +128,7 @@ func TestUpdateAdditionControllerServiceMonitor(t *testing.T) {
 	assert.NilError(t, err)
 	manifest = manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller-monitor"), mf.ByKind("ServiceMonitor")))
 
-	additionalPACConfig := v1alpha1.AdditionalPACControllerConfig{
-		ConfigMapName: "test-configmap",
-		SecretName:    "test-secret",
-	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerServiceMonitor(additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerServiceMonitor("test"))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
 }
@@ -139,10 +140,10 @@ func TestUpdateAdditionControllerConfigMapWithDefaultCM(t *testing.T) {
 	manifest = manifest.Filter(mf.All(mf.ByName("pipelines-as-code"), mf.ByKind("ConfigMap")))
 
 	additionalPACConfig := v1alpha1.AdditionalPACControllerConfig{
-		ConfigMapName: "",
+		ConfigMapName: "pipelines-as-code",
 		SecretName:    "test-secret",
 	}
-	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig))
 	assert.NilError(t, err)
 	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "pipelines-as-code")
 }
@@ -158,7 +159,7 @@ func TestUpdateAdditionControllerConfigMap(t *testing.T) {
 		Settings:      map[string]string{"application-name": "Test CI application", "hub-url": "https://custom-hub.com"},
 	}
 
-	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig, "test"))
+	updatedManifest, err := manifest.Transform(updateAdditionControllerConfigMap(additionalPACConfig))
 	if err != nil {
 		assert.NilError(t, err)
 	}
