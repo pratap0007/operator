@@ -46,9 +46,7 @@ func setAdditionalPACControllerDefault(additionalPACController map[string]Additi
 		if additionalPACInfo.Settings == nil {
 			additionalPACInfo.Settings = map[string]string{}
 		}
-		value := additionalPACInfo.Settings
-		settings.SetDefaults(value)
-		additionalPACInfo.Settings = value
+		settings.SetDefaults(additionalPACInfo.Settings)
 
 		if additionalPACInfo.ConfigMapName == "" {
 			additionalPACInfo.ConfigMapName = name + "-configmap"

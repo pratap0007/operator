@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestValidateName(t *testing.T) {
+func TestValidateAddtionalPACControllerInvalidName(t *testing.T) {
 	opacCR := &OpenShiftPipelinesAsCode{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "name",
@@ -52,4 +52,33 @@ func TestValidateName(t *testing.T) {
 	err := opacCR.Validate(context.TODO())
 	fmt.Println(err)
 	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers", "Test"), err.Error())
+}
+
+func TestValidateAddtionalPACControllerInvalidConfigMapName(t *testing.T) {
+	opacCR := &OpenShiftPipelinesAsCode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+		},
+		Spec: OpenShiftPipelinesAsCodeSpec{
+			CommonSpec: CommonSpec{
+				TargetNamespace: "Openshift-Pipelines",
+			},
+			PACSettings: PACSettings{
+				Settings: map[string]string{},
+				AdditionalPACControllers: map[string]AdditionalPACControllerConfig{
+					"test": {
+						ConfigMapName: "Test-configmap",
+						SecretName:    "test-secret",
+						Settings: map[string]string{
+							"application-name": "Additional PACController CI",
+						},
+					},
+				},
+			},
+		},
+	}
+	err := opacCR.Validate(context.TODO())
+	fmt.Println(err)
+	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.ConfigMapName", "Test-configmap"), err.Error())
 }
