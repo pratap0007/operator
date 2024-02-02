@@ -116,7 +116,6 @@ release_yaml_pac() {
 
     ko_data=${SCRIPT_DIR}/cmd/${TARGET}/operator/kodata
     dirPath=${ko_data}/tekton-addon/pipelines-as-code/${version}
-    additionalControllerdirPath=${ko_data}/static/pipelines-as-code/${version}
 
     if [[ ${version} == "stable" ||  ${version} == "nightly" ]]; then
       url="https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/${version}/release.yaml"
@@ -125,7 +124,6 @@ release_yaml_pac() {
     fi
 
     dest=${dirPath}/${fileName}.yaml
-    additionalControllerDest=${additionalControllerdirPath}/additional-controller.yaml
 
      if [ -f "$dest" ] && [ $FORCE_FETCH_RELEASE = "false" ]; then
         label="app.kubernetes.io/version: \"$version\""
@@ -133,7 +131,7 @@ release_yaml_pac() {
           then
             echo "release file already exist with required version, skipping!"
             echo ""
-            # return
+            return
         fi
      else
          rm -rf ${dirPath} || true
@@ -150,6 +148,7 @@ release_yaml_pac() {
          echo "Info: Added $comp/$fileName:$version release yaml !!"
          echo ""
      fi
+
     runtime=( go java nodejs python generic )
     for run in "${runtime[@]}"
     do
@@ -170,34 +169,6 @@ release_yaml_pac() {
 
     done
     echo ""
-}
-
-release_yaml_pac_additionalcontroller(){
- echo fetching additional controller for '|' component: ${1} '|' version: ${2}
-  local comp=$1
-  local version=$2
-
-  ko_data=${SCRIPT_DIR}/cmd/${TARGET}/operator/kodata
-  additionalControllerdirPath=${ko_data}/static/pipelines-as-code/${version}
-
-  if [[ ${version} == "stable" ||  ${version} == "nightly" ]]; then
-    url="https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/${version}/release.yaml"
-  else
-    url="https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/release-${version}/release.yaml"
-  fi
-
-  additionalControllerDest=${additionalControllerdirPath}/additional-controller.yaml
-  echo "-----------------------------------------------"
-  echo "Info: Fetching addional controller config"
-  rm -rf ${additionalControllerdirPath} || true 
-  mkdir -p ${additionalControllerdirPath} || true 
-  file_content=$(curl -s  -w "%{http_code}" ${url})
-  if [ $? -eq 0 ]; then 
-    echo $file_content
-  else
-    echo "failed to fetch it"
-  fi
-
 }
 
 
@@ -296,7 +267,6 @@ main() {
   else
     pac_version=$(go run ./cmd/tool component-version ${CONFIG} pipelines-as-code)
     release_yaml_pac pipelinesascode release ${pac_version}
-    # release_yaml_pac_additionalcontroller pipelinesascode ${pac_version}
     fetch_openshift_addon_tasks
   fi
 
