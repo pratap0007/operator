@@ -44,7 +44,7 @@ func validatePACSetting(pacSettings PACSettings) *apis.FieldError {
 	var errs *apis.FieldError
 
 	if err := settings.Validate(pacSettings.Settings); err != nil {
-		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode"))
+		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings"))
 	}
 
 	errs = errs.Also(validateAdditionalPACSetting(pacSettings.AdditionalPACControllers))
@@ -61,15 +61,15 @@ func validateAdditionalPACSetting(additionalPACController map[string]AdditionalP
 		}
 
 		if err := validateName(additionalPACInfo.ConfigMapName); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.ConfigMapName"))
 		}
 
 		if err := validateName(additionalPACInfo.SecretName); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.SecretName"))
 		}
 
 		if err := settings.Validate(additionalPACInfo.Settings); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
+			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.Settings"))
 		}
 	}
 
