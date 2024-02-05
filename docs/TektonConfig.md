@@ -440,6 +440,47 @@ platforms:
 
 **NOTE**: OpenShiftPipelinesAsCode is currently available for the OpenShift Platform only.
 
+#### Additional Pipelines As Controller (Optional)
+
+If users want to deploy additional Pipelines As Code controller on their cluster along with default Pipelines As Code controller then they need to edit the `TektonConfig` custom resource and add the `additionalPACControllers` field in the `pipelinesAsCode` fields
+
+Example:
+
+```yaml
+pipelinesAsCode:
+  additionalPACControllers:
+    controllerName:
+      configMapName:
+      secretName:
+      settings:
+```
+
+Field `configMapName` is optional and used to set the ConfigMap name of additional Pipelines As Controller in the deployment. If user doesn't provides any value then Operator will add controllerName + `-configmap` as default value.
+If user creates configMap with name
+`pipelines-as-code` for additional Pipelines As Code controller, then operator will use default Pipelines As Controller's ConfigMap.
+
+Field `secretName` is optional and used to set the Secret name of additional Pipelines As Controller in the deployment. If user does not provides any value Operator will add controllerName + `-secret` as default value.
+
+Field `settings` is optional and used to set the settings of additional Pipelines As Controller, default value will reference from [here](https://pipelinesascode.com/docs/install/settings/#pipelines-as-code-configuration-settings).
+
+> **NOTE:** Users can deploy multiple additional Pipelines As Code Controller by adding multiple Addition Pipelines As Code controller configuration in
+> `additionalPACControllers` field.
+
+Example:
+
+```yaml
+pipelinesAsCode:
+  additionalPACControllers:
+    firstController:
+      configMapName:
+      secretName:
+      settings:
+    secondController:
+      configMapName: second-config
+      secretName: second-secret
+      settings:
+```
+
 [node-selector]:https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 [tolerations]:https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 [schedule]:https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#cron-schedule-syntax
