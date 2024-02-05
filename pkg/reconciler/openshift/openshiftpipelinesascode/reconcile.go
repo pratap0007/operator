@@ -106,6 +106,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	}
 
 	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
+		// if it is not enabled then skip creating
+		if !*pacInfo.Enable {
+			continue
+		}
+
 		additionalPACControllerManifest := r.additionalPACManifest
 		if pacInfo.ConfigMapName == pipelinesAsCodeCM {
 			additionalPACControllerManifest = additionalPACControllerManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
@@ -139,9 +144,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		// remove the prefix custom-
 		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf(client.InstallerTypeCustom+"-"))
 		// check if the name exist in additionalPac Controller
-		_, ok := pac.Spec.PACSettings.AdditionalPACControllers[name]
-		// if not, delete the installerset
-		if !ok {
+		additionalPACinfo, ok := pac.Spec.PACSettings.AdditionalPACControllers[name]
+		// if not exist with same name or marked disable, delete the installerset
+		if !ok || !*additionalPACinfo.Enable {
 			if err := r.installerSetClient.CleanupCustomSet(ctx, name); err != nil {
 				return err
 			}

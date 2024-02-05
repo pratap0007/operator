@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"testing"
 
+	"knative.dev/pkg/ptr"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,6 +43,7 @@ func TestSetAdditionalPACControllerDefault(t *testing.T) {
 
 	opacCR.Spec.PACSettings.setPACDefaults()
 
+	assert.Equal(t, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable, true)
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName, "test-configmap")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName, "test-secret")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Pipelines as Code CI")
@@ -58,6 +61,7 @@ func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testi
 				Settings: map[string]string{},
 				AdditionalPACControllers: map[string]AdditionalPACControllerConfig{
 					"test": {
+						Enable:        ptr.Bool(false),
 						ConfigMapName: "test-configmap",
 						SecretName:    "test-secret",
 						Settings: map[string]string{
@@ -73,6 +77,7 @@ func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testi
 
 	opacCR.Spec.PACSettings.setPACDefaults()
 
+	assert.Equal(t, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable, false)
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Additional PACController CI")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-name"], "custom")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-url"], "https://custom.com")
