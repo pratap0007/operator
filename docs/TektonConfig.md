@@ -450,10 +450,12 @@ Example:
 pipelinesAsCode:
   additionalPACControllers:
     controllerName:
+      enable:
       configMapName:
       secretName:
       settings:
 ```
+Field `enable` is optional with default value to true. You can use this field to disable the particular additional PAC controller, without removing the details.
 
 Field `configMapName` is optional and used to set the ConfigMap name of additional Pipelines As Controller in the deployment. If user doesn't provides any value then Operator will add controllerName + `-configmap` as default value.
 If user creates configMap with name
@@ -472,10 +474,12 @@ Example:
 pipelinesAsCode:
   additionalPACControllers:
     firstController:
+      enable: true
       configMapName:
       secretName:
       settings:
     secondController:
+      enable: true
       configMapName: second-config
       secretName: second-secret
       settings:

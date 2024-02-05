@@ -79,6 +79,9 @@ type PACSettings struct {
 
 // AdditionalPACControllerConfig contains config for additionalPACControllers
 type AdditionalPACControllerConfig struct {
+	// Enable or disable this additional pipelines as code instance by changing this bool
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
 	// Name of the additional controller configMap
 	// +optional
 	ConfigMapName string `json:"configMapName,omitempty"`
