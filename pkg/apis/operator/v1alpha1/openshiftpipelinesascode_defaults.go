@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"context"
 
+	"knative.dev/pkg/ptr"
+
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
 )
 
@@ -48,6 +50,9 @@ func setAdditionalPACControllerDefault(additionalPACController map[string]Additi
 		}
 		settings.SetDefaults(additionalPACInfo.Settings)
 
+		if additionalPACInfo.Enable == nil {
+			additionalPACInfo.Enable = ptr.Bool(true)
+		}
 		if additionalPACInfo.ConfigMapName == "" {
 			additionalPACInfo.ConfigMapName = name + "-configmap"
 		}
