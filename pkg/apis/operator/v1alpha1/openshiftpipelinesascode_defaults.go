@@ -45,11 +45,6 @@ func (set *PACSettings) setPACDefaults() {
 // Set the default values for additional PAc controller resources
 func setAdditionalPACControllerDefault(additionalPACController map[string]AdditionalPACControllerConfig) {
 	for name, additionalPACInfo := range additionalPACController {
-		if additionalPACInfo.Settings == nil {
-			additionalPACInfo.Settings = map[string]string{}
-		}
-		settings.SetDefaults(additionalPACInfo.Settings)
-
 		if additionalPACInfo.Enable == nil {
 			additionalPACInfo.Enable = ptr.Bool(true)
 		}
