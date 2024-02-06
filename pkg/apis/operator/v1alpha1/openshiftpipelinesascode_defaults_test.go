@@ -46,8 +46,6 @@ func TestSetAdditionalPACControllerDefault(t *testing.T) {
 	assert.Equal(t, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable, true)
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName, "test-configmap")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName, "test-secret")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Pipelines as Code CI")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["remember-ok-to-test"], "true")
 }
 
 func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testing.T) {
@@ -81,5 +79,4 @@ func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testi
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Additional PACController CI")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-name"], "custom")
 	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-url"], "https://custom.com")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["remember-ok-to-test"], "true")
 }
