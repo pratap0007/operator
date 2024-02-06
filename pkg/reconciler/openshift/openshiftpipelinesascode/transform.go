@@ -35,7 +35,7 @@ import (
 
 const (
 	pipelinesAsCodeCM                 = "pipelines-as-code"
-	additionalPACControllerNameSuffix = "-controller"
+	additionalPACControllerNameSuffix = "-pac-controller"
 )
 
 func filterAndTransform(extension common.Extension) client.FilterAndTransform {

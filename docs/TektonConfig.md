@@ -455,6 +455,8 @@ pipelinesAsCode:
       secretName:
       settings:
 ```
+Field `controllerName` should not be more than 25 characters and should follow k8s naming rules.
+
 Field `enable` is optional with default value to true. You can use this field to disable the particular additional PAC controller, without removing the details.
 
 Field `configMapName` is optional and used to set the ConfigMap name of additional Pipelines As Controller in the deployment. If user doesn't provides any value then Operator will add controllerName + `-configmap` as default value.
