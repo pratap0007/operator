@@ -25,6 +25,10 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+// this is 25 because this name goes in the installerset name which already have 38 characters, so additional length we
+// can have for name is 25, as the kibernetes have restriction for 63
+const additionalPACControllerNameLength = 25
+
 func (pac *OpenShiftPipelinesAsCode) Validate(ctx context.Context) *apis.FieldError {
 	if apis.IsInDelete(ctx) {
 		return nil
@@ -56,7 +60,7 @@ func validateAdditionalPACSetting(additionalPACController map[string]AdditionalP
 	var errs *apis.FieldError
 	for name, additionalPACInfo := range additionalPACController {
 
-		if err := validateName(name); err != nil {
+		if err := validateControllerName(name); err != nil {
 			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
 		}
 
@@ -76,6 +80,24 @@ func validateAdditionalPACSetting(additionalPACController map[string]AdditionalP
 	return errs
 }
 
+// validates the name of the controller resource is valid kubernetes name
+func validateControllerName(name string) *apis.FieldError {
+	if err := validation.IsDNS1123Subdomain(name); len(err) > 0 {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid resource name %q: must be a valid DNS label", name),
+			Paths:   []string{"name"},
+		}
+	}
+
+	if len(name) > additionalPACControllerNameLength {
+		return &apis.FieldError{
+			Message: fmt.Sprintf("invalid resource name %q: length must be no more than %d characters", name, additionalPACControllerNameLength),
+			Paths:   []string{"name"},
+		}
+	}
+	return nil
+}
+
 // validates the name of the resource is valid kubernetes name
 func validateName(name string) *apis.FieldError {
 	if err := validation.IsDNS1123Subdomain(name); len(err) > 0 {
@@ -87,7 +109,7 @@ func validateName(name string) *apis.FieldError {
 
 	if len(name) > validation.DNS1123LabelMaxLength {
 		return &apis.FieldError{
-			Message: fmt.Sprintf("Invalid resource name %q: length must be no more than 63 characters", name),
+			Message: fmt.Sprintf("invalid resource name %q: length must be no more than %d characters", name, validation.DNS1123LabelMaxLength),
 			Paths:   []string{"name"},
 		}
 	}
