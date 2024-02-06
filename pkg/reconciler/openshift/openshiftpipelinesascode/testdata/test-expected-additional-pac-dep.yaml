@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-controller
+  name: test-pac-controller
   namespace: pipelines-as-code
   labels:
     app.kubernetes.io/version: "v0.23.0"
@@ -10,15 +10,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: test-controller
+      app.kubernetes.io/name: test-pac-controller
       app.kubernetes.io/component: controller
       app.kubernetes.io/instance: default
       app.kubernetes.io/part-of: pipelines-as-code
   template:
     metadata:
       labels:
-        app: test-controller
-        app.kubernetes.io/name: test-controller
+        app: test-pac-controller
+        app.kubernetes.io/name: test-pac-controller
         app.kubernetes.io/component: controller
         app.kubernetes.io/instance: default
         app.kubernetes.io/part-of: pipelines-as-code
@@ -30,7 +30,7 @@ spec:
           type: RuntimeDefault
       serviceAccountName: pipelines-as-code-controller
       containers:
-        - name: test-controller
+        - name: test-pac-controller
           image: "ghcr.io/openshift-pipelines/pipelines-as-code-controller:v0.23.0"
           imagePullPolicy: Always
           ports:
@@ -81,7 +81,7 @@ spec:
             - name: K_SINK_TIMEOUT
               value: "30"
             - name: PAC_CONTROLLER_LABEL
-              value: "test-controller"
+              value: "test-pac-controller"
             - name: PAC_CONTROLLER_SECRET
               value: "test-secret"
             - name: PAC_CONTROLLER_CONFIGMAP

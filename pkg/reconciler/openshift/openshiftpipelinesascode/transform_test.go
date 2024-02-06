@@ -55,7 +55,7 @@ func TestUpdateAdditionControllerDeployment(t *testing.T) {
 	}
 	updatedDeployment, err := manifest.Transform(updateAdditionControllerDeployment(additionalPACConfig, "test"))
 	assert.NilError(t, err)
-	assert.DeepEqual(t, updatedDeployment.Resources()[0].GetName(), "test-controller")
+	assert.DeepEqual(t, updatedDeployment.Resources()[0].GetName(), "test-pac-controller")
 
 	expectedData := path.Join("testdata", "test-expected-additional-pac-dep.yaml")
 	expectedManifest, err := mf.ManifestFrom(mf.Recursive(expectedData))
@@ -87,7 +87,7 @@ func TestUpdateAdditionControllerService(t *testing.T) {
 
 	updatedManifest, err := manifest.Transform(updateAdditionControllerService("test"))
 	assert.NilError(t, err)
-	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
+	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-pac-controller")
 }
 
 func TestUpdateAdditionControllerRoute(t *testing.T) {
@@ -130,7 +130,7 @@ func TestUpdateAdditionControllerServiceMonitor(t *testing.T) {
 
 	updatedManifest, err := manifest.Transform(updateAdditionControllerServiceMonitor("test"))
 	assert.NilError(t, err)
-	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-controller")
+	assert.DeepEqual(t, updatedManifest.Resources()[0].GetName(), "test-pac-controller")
 }
 
 func TestUpdateAdditionControllerConfigMapWithDefaultCM(t *testing.T) {
