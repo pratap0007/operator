@@ -20,6 +20,7 @@ import (
 	"context"
 
 	mf "github.com/manifestival/manifestival"
+	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
 	"github.com/tektoncd/operator/pkg/reconciler/common"
@@ -217,9 +218,12 @@ func updateAdditionControllerConfigMap(config v1alpha1.AdditionalPACControllerCo
 
 		u.SetName(config.ConfigMapName)
 
-		if len(config.Settings) == 0 {
-			return nil
+		// apply the defaults here, we are not adding the defaults in CR
+		if config.Settings == nil {
+			config.Settings = map[string]string{}
 		}
+		settings.SetDefaults(config.Settings)
+
 		cm := &corev1.ConfigMap{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, cm)
 		if err != nil {
