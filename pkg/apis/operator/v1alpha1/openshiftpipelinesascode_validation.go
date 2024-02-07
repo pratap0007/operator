@@ -25,8 +25,8 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-// this is 25 because this name goes in the installerset name which already have 38 characters, so additional length we
-// can have for name is 25, as the kibernetes have restriction for 63
+// limit is 25 because this name goes in the installerset name which already have 38 characters, so additional length we
+// can have for name is 25, as the kubernetes have restriction for 63
 const additionalPACControllerNameLength = 25
 
 func (pac *OpenShiftPipelinesAsCode) Validate(ctx context.Context) *apis.FieldError {
@@ -39,42 +39,42 @@ func (pac *OpenShiftPipelinesAsCode) Validate(ctx context.Context) *apis.FieldEr
 	// execute common spec validations
 	errs = errs.Also(pac.Spec.CommonSpec.validate("spec"))
 
-	errs = errs.Also(validatePACSetting(pac.Spec.PACSettings))
+	errs = errs.Also(pac.Spec.PACSettings.validate("spec"))
 
 	return errs
 }
 
-func validatePACSetting(pacSettings PACSettings) *apis.FieldError {
+func (pacSettings *PACSettings) validate(path string) *apis.FieldError {
 	var errs *apis.FieldError
 
 	if err := settings.Validate(pacSettings.Settings); err != nil {
-		errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings"))
+		errs = errs.Also(apis.ErrInvalidValue(err, path+".settings."))
 	}
 
-	errs = errs.Also(validateAdditionalPACSetting(pacSettings.AdditionalPACControllers))
+	for name, additionalPACControllerConfig := range pacSettings.AdditionalPACControllers {
+		if err := validateControllerName(name); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(err, path+".additionalPACControllers"))
+		}
+
+		errs = errs.Also(additionalPACControllerConfig.validate(path + ".additionalPACControllers"))
+	}
 
 	return errs
 }
 
-func validateAdditionalPACSetting(additionalPACController map[string]AdditionalPACControllerConfig) *apis.FieldError {
+func (additionalPACControllerConfig AdditionalPACControllerConfig) validate(path string) *apis.FieldError {
 	var errs *apis.FieldError
-	for name, additionalPACInfo := range additionalPACController {
 
-		if err := validateControllerName(name); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers"))
-		}
+	if err := validateName(additionalPACControllerConfig.ConfigMapName); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(err, path+".configMapName"))
+	}
 
-		if err := validateName(additionalPACInfo.ConfigMapName); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.ConfigMapName"))
-		}
+	if err := validateName(additionalPACControllerConfig.SecretName); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(err, path+".secretName"))
+	}
 
-		if err := validateName(additionalPACInfo.SecretName); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.SecretName"))
-		}
-
-		if err := settings.Validate(additionalPACInfo.Settings); err != nil {
-			errs = errs.Also(apis.ErrInvalidValue(err, "spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.Settings"))
-		}
+	if err := settings.Validate(additionalPACControllerConfig.Settings); err != nil {
+		errs = errs.Also(apis.ErrInvalidValue(err, path+".settings"))
 	}
 
 	return errs

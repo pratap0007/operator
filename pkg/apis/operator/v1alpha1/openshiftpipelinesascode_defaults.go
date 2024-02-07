@@ -19,9 +19,8 @@ package v1alpha1
 import (
 	"context"
 
-	"knative.dev/pkg/ptr"
-
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
+	"knative.dev/pkg/ptr"
 )
 
 func (pac *OpenShiftPipelinesAsCode) SetDefaults(ctx context.Context) {
