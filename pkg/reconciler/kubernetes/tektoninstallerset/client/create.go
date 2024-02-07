@@ -120,7 +120,9 @@ func (i *InstallerSetClient) makeInstallerSet(ctx context.Context, comp v1alpha1
 		return nil, err
 	}
 
+	// get default labels of installerset
 	labels := i.getDefaultLabels(isType)
+	// append custom labels
 	for key, value := range customLabels {
 		labels[key] = value
 	}
