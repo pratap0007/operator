@@ -43,8 +43,8 @@ func TestSetAdditionalPACControllerDefault(t *testing.T) {
 	opacCR.Spec.PACSettings.setPACDefaults()
 
 	assert.Equal(t, true, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable)
-	assert.Equal(t, "test-pipeline-as-code-configmap", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName)
-	assert.Equal(t, "test-pipeline-as-code-secret", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName)
+	assert.Equal(t, "test-pipelines-as-code-configmap", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName)
+	assert.Equal(t, "test-pipelines-as-code-secret", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName)
 }
 
 func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testing.T) {
