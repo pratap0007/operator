@@ -23,6 +23,7 @@ import (
 	"knative.dev/pkg/logging"
 )
 
+// ListCustomSet return the lists of custom sets with the provided labelSelector
 func (i *InstallerSetClient) ListCustomSet(ctx context.Context, labelSelector string) (*v1alpha1.TektonInstallerSetList, error) {
 	logger := logging.FromContext(ctx)
 	logger.Infof("%v: checking installer sets with labels: %v", i.resourceKind, labelSelector)
