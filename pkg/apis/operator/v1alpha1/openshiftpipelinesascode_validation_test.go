@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Tekton Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ func TestValidateAddtionalPACControllerInvalidName(t *testing.T) {
 		},
 		Spec: OpenShiftPipelinesAsCodeSpec{
 			CommonSpec: CommonSpec{
-				TargetNamespace: "Openshift-Pipelines",
+				TargetNamespace: "openshift-pipelines",
 			},
 			PACSettings: PACSettings{
 				Settings: map[string]string{},
@@ -50,7 +50,7 @@ func TestValidateAddtionalPACControllerInvalidName(t *testing.T) {
 		},
 	}
 	err := opacCR.Validate(context.TODO())
-	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers", "Test"), err.Error())
+	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.additionalPACControllers", "Test"), err.Error())
 }
 
 func TestValidateAddtionalPACControllerInvalidConfigMapName(t *testing.T) {
@@ -61,7 +61,7 @@ func TestValidateAddtionalPACControllerInvalidConfigMapName(t *testing.T) {
 		},
 		Spec: OpenShiftPipelinesAsCodeSpec{
 			CommonSpec: CommonSpec{
-				TargetNamespace: "Openshift-Pipelines",
+				TargetNamespace: "openshift-pipelines",
 			},
 			PACSettings: PACSettings{
 				Settings: map[string]string{},
@@ -78,7 +78,7 @@ func TestValidateAddtionalPACControllerInvalidConfigMapName(t *testing.T) {
 		},
 	}
 	err := opacCR.Validate(context.TODO())
-	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers.ConfigMapName", "Test-configmap"), err.Error())
+	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: must be a valid DNS label: name: spec.additionalPACControllers.configMapName", "Test-configmap"), err.Error())
 }
 
 func TestValidateAddtionalPACControllerInvalidNameLength(t *testing.T) {
@@ -106,5 +106,5 @@ func TestValidateAddtionalPACControllerInvalidNameLength(t *testing.T) {
 		},
 	}
 	err := opacCR.Validate(context.TODO())
-	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: length must be no more than 25 characters: name: spec.platforms.openshift.pipelinesAsCode.PACSettings.AdditionalPACControllers", "testlengthwhichexceedsthemaximumlength"), err.Error())
+	assert.Equal(t, fmt.Sprintf("invalid value: invalid resource name %q: length must be no more than 25 characters: name: spec.additionalPACControllers", "testlengthwhichexceedsthemaximumlength"), err.Error())
 }

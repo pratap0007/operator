@@ -48,7 +48,7 @@ func (tc *TektonConfig) Validate(ctx context.Context) (errs *apis.FieldError) {
 	}
 
 	if IsOpenShiftPlatform() && tc.Spec.Platforms.OpenShift.PipelinesAsCode != nil {
-		errs = errs.Also(validatePACSetting(tc.Spec.Platforms.OpenShift.PipelinesAsCode.PACSettings))
+		errs = errs.Also(tc.Spec.Platforms.OpenShift.PipelinesAsCode.PACSettings.validate("spec.platforms.openshift.pipelinesAsCode"))
 	}
 
 	// validate SCC config
