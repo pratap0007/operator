@@ -26,14 +26,14 @@ import (
 // ListCustomSet return the lists of custom sets with the provided labelSelector
 func (i *InstallerSetClient) ListCustomSet(ctx context.Context, labelSelector string) (*v1alpha1.TektonInstallerSetList, error) {
 	logger := logging.FromContext(ctx)
-	logger.Infof("%v: checking installer sets with labels: %v", i.resourceKind, labelSelector)
+	logger.Debugf("%v: checking installer sets with labels: %v", i.resourceKind, labelSelector)
 
 	is, err := i.clientSet.List(ctx, v1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return nil, err
 	}
 	if len(is.Items) == 0 {
-		logger.Infof("%v: no installer sets found with labels: %v", i.resourceKind, labelSelector)
+		logger.Debugf("%v: no installer sets found with labels: %v", i.resourceKind, labelSelector)
 	}
 	return is, nil
 }

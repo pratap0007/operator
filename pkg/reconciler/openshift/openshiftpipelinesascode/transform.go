@@ -18,6 +18,7 @@ package openshiftpipelinesascode
 
 import (
 	"context"
+	"fmt"
 
 	mf "github.com/manifestival/manifestival"
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
@@ -136,7 +137,7 @@ func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerC
 			return nil
 		}
 
-		u.SetName(name + additionalPACControllerNameSuffix)
+		u.SetName(fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix))
 
 		d := &appsv1.Deployment{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, d)
@@ -144,13 +145,13 @@ func updateAdditionControllerDeployment(config v1alpha1.AdditionalPACControllerC
 			return err
 		}
 
-		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		d.Spec.Selector.MatchLabels["app.kubernetes.io/name"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 
-		d.Spec.Template.Labels["app"] = name + additionalPACControllerNameSuffix
-		d.Spec.Template.Labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		d.Spec.Template.Labels["app"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
+		d.Spec.Template.Labels["app.kubernetes.io/name"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 
 		for i, container := range d.Spec.Template.Spec.Containers {
-			container.Name = name + additionalPACControllerNameSuffix
+			container.Name = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 			containerEnvs := d.Spec.Template.Spec.Containers[i].Env
 			d.Spec.Template.Spec.Containers[i].Env = replaceEnvInDeployment(containerEnvs, config, name)
 			d.Spec.Template.Spec.Containers[i] = container
@@ -172,7 +173,7 @@ func updateAdditionControllerService(name string) mf.Transformer {
 		if u.GetKind() != "Service" {
 			return nil
 		}
-		u.SetName(name + additionalPACControllerNameSuffix)
+		u.SetName(fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix))
 
 		service := &corev1.Service{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, service)
@@ -184,15 +185,15 @@ func updateAdditionControllerService(name string) mf.Transformer {
 		if labels == nil {
 			labels = map[string]string{}
 		}
-		labels["app"] = name + additionalPACControllerNameSuffix
-		labels["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		labels["app"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
+		labels["app.kubernetes.io/name"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 		service.SetLabels(labels)
 
 		labelSelector := service.Spec.Selector
 		if labelSelector == nil {
 			labelSelector = map[string]string{}
 		}
-		labelSelector["app.kubernetes.io/name"] = name + additionalPACControllerNameSuffix
+		labelSelector["app.kubernetes.io/name"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 		service.Spec.Selector = labelSelector
 
 		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
@@ -253,7 +254,7 @@ func updateAdditionControllerRoute(name string) mf.Transformer {
 		if u.GetKind() != "Route" {
 			return nil
 		}
-		u.SetName(name + additionalPACControllerNameSuffix)
+		u.SetName(fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix))
 
 		route := &routev1.Route{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, route)
@@ -261,13 +262,13 @@ func updateAdditionControllerRoute(name string) mf.Transformer {
 			return err
 		}
 
-		route.Spec.To.Name = name + additionalPACControllerNameSuffix
+		route.Spec.To.Name = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 		labels := route.Labels
 		if labels == nil {
 			labels = map[string]string{}
 		}
-		labels["app"] = name + additionalPACControllerNameSuffix
-		labels["pipelines-as-code/route"] = name + additionalPACControllerNameSuffix
+		labels["app"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
+		labels["pipelines-as-code/route"] = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 		route.SetLabels(labels)
 
 		unstrObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(route)
@@ -288,9 +289,9 @@ func updateAdditionControllerServiceMonitor(name string) mf.Transformer {
 			return nil
 		}
 
-		u.SetName(name + additionalPACControllerNameSuffix)
+		u.SetName(fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix))
 		err := unstructured.SetNestedMap(u.Object, map[string]interface{}{
-			"app": name + additionalPACControllerNameSuffix,
+			"app": fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix),
 		}, "spec", "selector", "matchLabels")
 		if err != nil {
 			return err
@@ -309,7 +310,7 @@ func replaceEnvInDeployment(envs []corev1.EnvVar, envInfo v1alpha1.AdditionalPAC
 			envs[i].Value = envInfo.SecretName
 		}
 		if e.Name == "PAC_CONTROLLER_LABEL" {
-			envs[i].Value = name + additionalPACControllerNameSuffix
+			envs[i].Value = fmt.Sprintf("%s%s", name, additionalPACControllerNameSuffix)
 		}
 	}
 	return envs
