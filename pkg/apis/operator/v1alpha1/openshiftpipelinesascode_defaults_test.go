@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Tekton Authors
+Copyright 2024 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ package v1alpha1
 import (
 	"testing"
 
-	"knative.dev/pkg/ptr"
-
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/ptr"
 )
 
 func TestSetAdditionalPACControllerDefault(t *testing.T) {
@@ -43,9 +42,9 @@ func TestSetAdditionalPACControllerDefault(t *testing.T) {
 
 	opacCR.Spec.PACSettings.setPACDefaults()
 
-	assert.Equal(t, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable, true)
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName, "test-pipeline-as-code-configmap")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName, "test-pipeline-as-code-secret")
+	assert.Equal(t, true, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable)
+	assert.Equal(t, "test-pipeline-as-code-configmap", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].ConfigMapName)
+	assert.Equal(t, "test-pipeline-as-code-secret", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].SecretName)
 }
 
 func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testing.T) {
@@ -75,8 +74,8 @@ func TestSetAdditionalPACControllerDefaultHavingAdditionalPACController(t *testi
 
 	opacCR.Spec.PACSettings.setPACDefaults()
 
-	assert.Equal(t, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable, false)
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"], "Additional PACController CI")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-name"], "custom")
-	assert.Equal(t, opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-url"], "https://custom.com")
+	assert.Equal(t, false, *opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Enable)
+	assert.Equal(t, "Additional PACController CI", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["application-name"])
+	assert.Equal(t, "custom", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-name"])
+	assert.Equal(t, "https://custom.com", opacCR.Spec.PACSettings.AdditionalPACControllers["test"].Settings["custom-console-url"])
 }
