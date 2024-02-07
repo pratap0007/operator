@@ -29,8 +29,15 @@ import (
 	"github.com/tektoncd/operator/test/utils"
 )
 
-// TestTektonAddonsDeployment verifies the TektonAddons creation, deployment recreation, and TektonAddons deletion.
-func TestOpenshiftPipelinesASCodeAdditionalController(t *testing.T) {
+const (
+	interval       = 5 * time.Second
+	timeout        = 5 * time.Minute
+	deploymentName = "additional-test-pac-controller"
+)
+
+// TestOpenshiftPipelinesAsCode verifies the TestOpenshiftPipelinesAsCode creation, additional controller creation and
+// deletion, and TestOpenshiftPipelinesAsCode deletion.
+func TestOpenshiftPipelinesAsCode(t *testing.T) {
 	crNames := utils.ResourceNames{
 		TektonConfig:             "config",
 		TektonPipeline:           "pipeline",
@@ -71,52 +78,52 @@ func TestOpenshiftPipelinesASCodeAdditionalController(t *testing.T) {
 	}
 
 	// Test if OpenShiftPipelinesAsCode can reach the READY status
-	t.Run("OpenShiftPipelinesAsCode", func(t *testing.T) {
+	t.Run("create-openshift-pipelines-as-code", func(t *testing.T) {
 		resources.AssertOpenShiftPipelinesAsCodeCRReadyStatus(t, clients, crNames)
 	})
 
 	// Create the additional Pipelines As Controller in the OpenShiftPipelinesAsCode CR
-	if _, err := resources.CreateAdditionalPipelinesASCodeController(clients.OpenShiftPipelinesAsCode(), crNames); err != nil {
-		t.Fatalf("failed to create additional pipelines as code controller in %q failed to create: %v", crNames.OpenShiftPipelinesAsCode, err)
+	if _, err := resources.CreateAdditionalPipelinesAsCodeController(clients.OpenShiftPipelinesAsCode(), crNames); err != nil {
+		t.Fatalf("failed to create additional pipelines as code controller in %q: %v", crNames.OpenShiftPipelinesAsCode, err)
 	}
 
-	// wait for additional pipelines as code controller deployment gets ready
-	if err := resources.WaitForDeploymentReady(clients.KubeClient, "test-controller", crNames.TargetNamespace, 30*time.Second, 2*time.Minute); err != nil {
-		t.Fatalf("failed to find additional pipelines as code deployment %q: %v", "test-controller", err)
-	}
-
-	// Is additional Pipelines As Code deployment available
-	if _, err := resources.IsAdditionalPACDeploymentAvailable(clients.KubeClient, "test-controller", crNames.TargetNamespace); err != nil {
-		t.Fatalf("failed to find additional pipelines as code deployment %q: %v", "test-controller", err)
-	}
-
-	// Test if OpenShiftPipelinesAsCode can reach the READY status
-	t.Run("OpenShiftPipelinesAsCode", func(t *testing.T) {
+	// Test if OpenShiftPipelinesAsCode can reach the READY status after deploying additional controller
+	t.Run("create-additional-pipelines-as-code-controller", func(t *testing.T) {
 		resources.AssertOpenShiftPipelinesAsCodeCRReadyStatus(t, clients, crNames)
 	})
 
-	// Remove the additional Pipelines As Controller from the OpenShiftPipelinesAsCode CR
-	if _, err := resources.RemoveAdditionalPipelinesASCodeController(clients.OpenShiftPipelinesAsCode(), crNames); err != nil {
-		t.Fatalf("failed to create additional pipelines as code controller in %q failed to create: %v", crNames.OpenShiftPipelinesAsCode, err)
-	}
-
 	// Wait for additional pipelines as code controller deployment gets ready
-	if err := resources.WaitForDeploymentDeletion(clients.KubeClient, "test-controller", crNames.TargetNamespace, 30*time.Second, 2*time.Minute); err != nil {
-		t.Fatalf("failed to find additional pipelines as code deployment %q: %v", "test-controller", err)
+	if err := resources.WaitForDeploymentReady(clients.KubeClient, deploymentName, crNames.TargetNamespace, interval, timeout); err != nil {
+		t.Fatalf("failed to check ready status of additional pipelines as code deployment with name %q: %v", deploymentName, err)
 	}
 
-	// Check additional OpenShiftPipelinesAsCode deployment is deleted
-	t.Run("AdditionalOpenShiftPipelinesAsCodeDeploymentDeletion", func(t *testing.T) {
-		resources.AssertAdditionalPACControllerDeletion(t, clients.KubeClient, "test-controller", crNames.Namespace)
+	// If additional Pipelines As Code deployment is available or not
+	if err := resources.WaitForDeploymentAvailable(clients.KubeClient, deploymentName, crNames.TargetNamespace, interval, timeout); err != nil {
+		t.Fatalf("failed to check if additional pipelines as code deployment %q is available: %v", deploymentName, err)
+	}
+
+	// Remove the additional Pipelines As Controller from the OpenShiftPipelinesAsCode CR
+	if _, err := resources.RemoveAdditionalPipelinesAsCodeController(clients.OpenShiftPipelinesAsCode(), crNames); err != nil {
+		t.Fatalf("failed to remove additional pipelines as code controller in %q: %v", crNames.OpenShiftPipelinesAsCode, err)
+	}
+
+	// Test if OpenShiftPipelinesAsCode can reach the READY status after removing additional controller
+	t.Run("remove-additional-controller-pipelines-as-code", func(t *testing.T) {
+		resources.AssertOpenShiftPipelinesAsCodeCRReadyStatus(t, clients, crNames)
 	})
 
-	// Delete the OpenShiftPipelinesAsCode CR
+	// Wait for additional pipelines as code controller deployment gets deleted
+	if err := resources.WaitForDeploymentDeletion(clients.KubeClient, deploymentName, crNames.TargetNamespace, interval, timeout); err != nil {
+		t.Fatalf("failed to check if additional pipelines as code deployment %q is deleted: %v", deploymentName, err)
+	}
+
+	// Delete the OpenShiftPipelinesAsCode CR instance
 	t.Run("delete-openshift-pipelines-as-code", func(t *testing.T) {
 		resources.AssertOpenShiftPipelinesAsCodeCRReadyStatus(t, clients, crNames)
 		resources.OpenShiftPipelinesAsCodeCRDelete(t, clients, crNames)
 	})
 
-	// Delete the TektonPipeline CR instance to see if all resources will be removed
+	// Delete the TektonPipeline CR instance
 	t.Run("delete-pipeline", func(t *testing.T) {
 		resources.AssertTektonPipelineCRReadyStatus(t, clients, crNames)
 		resources.TektonPipelineCRDelete(t, clients, crNames)
