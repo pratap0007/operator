@@ -48,10 +48,10 @@ func setAdditionalPACControllerDefault(additionalPACController map[string]Additi
 			additionalPACInfo.Enable = ptr.Bool(true)
 		}
 		if additionalPACInfo.ConfigMapName == "" {
-			additionalPACInfo.ConfigMapName = name + "-pipeline-as-code-configmap"
+			additionalPACInfo.ConfigMapName = name + "-pipelines-as-code-configmap"
 		}
 		if additionalPACInfo.SecretName == "" {
-			additionalPACInfo.SecretName = name + "-pipeline-as-code-secret"
+			additionalPACInfo.SecretName = name + "-pipelines-as-code-secret"
 		}
 		additionalPACController[name] = additionalPACInfo
 	}
