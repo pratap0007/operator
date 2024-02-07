@@ -109,7 +109,6 @@ func additionalControllerTransform(extension common.Extension, name string) clie
 
 // This returns all resources to deploy for the additional PACController
 func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
-
 	// filter deployment
 	deploymentManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller"), mf.ByKind("Deployment")))
 
@@ -122,7 +121,7 @@ func filterAdditionalControllerManifest(manifest mf.Manifest) mf.Manifest {
 	// filter configmap
 	cmManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code"), mf.ByKind("ConfigMap")))
 
-	// filter serviceMOnitor
+	// filter serviceMonitor
 	serviceMonitorManifest := manifest.Filter(mf.All(mf.ByName("pipelines-as-code-controller-monitor"), mf.ByKind("ServiceMonitor")))
 
 	filteredManifest := mf.Manifest{}

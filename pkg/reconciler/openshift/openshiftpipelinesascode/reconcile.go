@@ -51,7 +51,7 @@ type Reconciler struct {
 	extension common.Extension
 	// version of PipelinesAsCode which we are installing
 	pacVersion string
-	// additionalPAC is the source of manifest for the additional Openshift Pipelines As Code Controller
+	// additionalPACManifest has the source manifest for the additional Openshift Pipelines As Code Controller
 	additionalPACManifest mf.Manifest
 }
 
@@ -105,17 +105,20 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		return nil
 	}
 
+	// created additionalPACController for all entries provided
 	for name, pacInfo := range pac.Spec.PACSettings.AdditionalPACControllers {
-		// if it is not enabled then skip creating
+		// if it is not enabled then skip creating the additionalPACController
 		if !*pacInfo.Enable {
 			continue
 		}
 
 		additionalPACControllerManifest := r.additionalPACManifest
+		// if name of configMap is pipeline-as-code, then not create a new configmap
 		if pacInfo.ConfigMapName == pipelinesAsCodeCM {
 			additionalPACControllerManifest = additionalPACControllerManifest.Filter(mf.Not(mf.ByKind("ConfigMap")))
 		}
 
+		// create custome set installerset for the additionalPACController
 		if err := r.installerSetClient.CustomSet(ctx, pac, name, &additionalPACControllerManifest, additionalControllerTransform(r.extension, name), additionalPacControllerLabels()); err != nil {
 			msg := fmt.Sprintf("Additional PACController %s Reconciliation failed: %s", name, err.Error())
 			logger.Error(msg)
@@ -129,7 +132,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 
 	// Handle the deletion of obsolute installersets of additionalController
 	labelSelector := additionalPacControllerLabelSelector()
-	logger.Infof("checking installer sets with labels: %v", labelSelector)
+	logger.Infof("checking custom installer sets with labels: %v", labelSelector)
 	is, err := r.installerSetClient.ListCustomSet(ctx, labelSelector)
 	if err != nil {
 		msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
@@ -138,12 +141,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 			return err
 		}
 	}
+	// for all the custom installerset available, iterate and delete which have been removed or disabled
 	for _, i := range is.Items {
-		// get the label of set Type
+		// get the value of setType label which will be custom-<name>
 		setTypeValue := i.GetLabels()[v1alpha1.InstallerSetType]
-		// remove the prefix custom-
+		// remove the prefix custom- to get the name
 		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf(client.InstallerTypeCustom+"-"))
-		// check if the name exist in additionalPac Controller
+		// check if the name exist in CR spec
 		additionalPACinfo, ok := pac.Spec.PACSettings.AdditionalPACControllers[name]
 		// if not exist with same name or marked disable, delete the installerset
 		if !ok || !*additionalPACinfo.Enable {
@@ -170,12 +174,14 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 	return nil
 }
 
+// custom labels to added to the additionalPACController installerset
 func additionalPacControllerLabels() map[string]string {
 	labels := map[string]string{}
 	labels[v1alpha1.ComponentKey] = additionalPACControllerComponentLabelValue
 	return labels
 }
 
+// labelSelector to filter the customsets of additionalPACController
 func additionalPacControllerLabelSelector() string {
 	labelSelector := labels.NewSelector()
 	createdReq, _ := labels.NewRequirement(v1alpha1.CreatedByKey, selection.Equals, []string{v1alpha1.KindOpenShiftPipelinesAsCode})
