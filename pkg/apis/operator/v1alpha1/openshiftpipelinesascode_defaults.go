@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/params/settings"
 	"knative.dev/pkg/ptr"
@@ -48,10 +49,10 @@ func setAdditionalPACControllerDefault(additionalPACController map[string]Additi
 			additionalPACInfo.Enable = ptr.Bool(true)
 		}
 		if additionalPACInfo.ConfigMapName == "" {
-			additionalPACInfo.ConfigMapName = name + "-pipelines-as-code-configmap"
+			additionalPACInfo.ConfigMapName = fmt.Sprintf("%s-pipelines-as-code-configmap", name)
 		}
 		if additionalPACInfo.SecretName == "" {
-			additionalPACInfo.SecretName = name + "-pipelines-as-code-secret"
+			additionalPACInfo.SecretName = fmt.Sprintf("%s-pipelines-as-code-secret", name)
 		}
 		additionalPACController[name] = additionalPACInfo
 	}

@@ -132,7 +132,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 
 	// Handle the deletion of obsolute installersets of additionalController
 	labelSelector := additionalPacControllerLabelSelector()
-	logger.Infof("checking custom installer sets with labels: %v", labelSelector)
+	logger.Debugf("checking custom installer sets with labels: %v", labelSelector)
 	is, err := r.installerSetClient.ListCustomSet(ctx, labelSelector)
 	if err != nil {
 		msg := fmt.Sprintf("Additional PACController Reconciliation failed: %s", err.Error())
@@ -146,7 +146,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, pac *v1alpha1.OpenShiftP
 		// get the value of setType label which will be custom-<name>
 		setTypeValue := i.GetLabels()[v1alpha1.InstallerSetType]
 		// remove the prefix custom- to get the name
-		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf(client.InstallerTypeCustom+"-"))
+		name := strings.TrimPrefix(setTypeValue, fmt.Sprintf("%s-", client.InstallerTypeCustom))
 		// check if the name exist in CR spec
 		additionalPACinfo, ok := pac.Spec.PACSettings.AdditionalPACControllers[name]
 		// if not exist with same name or marked disable, delete the installerset
