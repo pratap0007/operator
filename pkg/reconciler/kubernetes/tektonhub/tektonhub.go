@@ -139,8 +139,11 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, original *v1alpha1.Tekton
 		return err
 	}
 
+	bg := metav1.DeletePropagationForeground
 	if err := r.operatorClientSet.OperatorV1alpha1().TektonInstallerSets().
-		DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+		DeleteCollection(ctx, metav1.DeleteOptions{
+			PropagationPolicy: &bg,
+		}, metav1.ListOptions{
 			LabelSelector: labelSelector,
 		}); err != nil {
 		logger.Error("Failed to delete installer set created by TektonHub", err)
