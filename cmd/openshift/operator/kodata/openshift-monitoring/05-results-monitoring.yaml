@@ -26,6 +26,7 @@ spec:
   endpoints:
     - interval: 10s
       port: metrics
+      scheme: https
   jobLabel: app
   namespaceSelector:
     matchNames:
@@ -48,6 +49,7 @@ spec:
   endpoints:
     - interval: 10s
       port: prometheus
+      scheme: https
   jobLabel: app
   namespaceSelector:
     matchNames:

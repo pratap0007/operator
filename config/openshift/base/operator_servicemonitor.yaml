@@ -57,6 +57,7 @@ spec:
   endpoints:
     - interval: 10s
       port: http-metrics
+      scheme: https
   jobLabel: name
   namespaceSelector:
     matchNames:

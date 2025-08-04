@@ -59,6 +59,7 @@ spec:
   endpoints:
     - interval: 10s
       port: http-metrics
+      scheme: https
       honorLabels: true
   jobLabel: app
   namespaceSelector:
