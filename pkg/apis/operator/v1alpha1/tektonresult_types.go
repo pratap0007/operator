@@ -121,6 +121,22 @@ type ResultsAPIProperties struct {
 	LoggingPluginQueryLimit             *uint  `json:"logging_plugin_query_limit,omitempty"`
 	LoggingPluginQueryParams            string `json:"logging_plugin_query_params,omitempty"`
 	LoggingPluginMultipartRegex         string `json:"logging_plugin_multipart_regex,omitempty"`
+
+	// Route configuration for Results API service exposure
+	// +optional
+	RouteEnabled *bool  `json:"route_enabled,omitempty"`
+	RouteHost    string `json:"route_host,omitempty"`
+	RoutePath    string `json:"route_path,omitempty"`
+	// +optional
+	RouteTLSTermination string `json:"route_tls_termination,omitempty"`
+
+	// Ingress configuration for Results API service exposure
+	// +optional
+	IngressEnabled *bool  `json:"ingress_enabled,omitempty"`
+	IngressHost    string `json:"ingress_host,omitempty"`
+	IngressPath    string `json:"ingress_path,omitempty"`
+	// +optional
+	IngressTLS *bool `json:"ingress_tls,omitempty"`
 }
 
 // TektonResultStatus defines the observed state of TektonResult

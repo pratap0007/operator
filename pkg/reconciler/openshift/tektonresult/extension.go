@@ -37,17 +37,18 @@ import (
 
 const (
 	// manifests console plugin yaml directory location
-	routeRBACYamlDirectory  = "static/tekton-results/route-rbac"
-	internalDBYamlDirectory = "static/tekton-results/internal-db"
-	logsRBACYamlDirectory   = "static/tekton-results/logs-rbac"
-	deploymentAPI           = "tekton-results-api"
-	serviceAPI              = "tekton-results-api-service"
-	secretAPITLS            = "tekton-results-tls"
-	apiContainerName        = "api"
-	boundSAVolume           = "bound-sa-token"
-	boundSAPath             = "/var/run/secrets/openshift/serviceaccount"
-	lokiStackTLSCAEnvVar    = "LOGGING_PLUGIN_CA_CERT"
-	tektonResultWatcherName = "tekton-results-watcher"
+	routeRBACYamlDirectory    = "static/tekton-results/route-rbac"
+	routeIngressYamlDirectory = "static/tekton-results/route-ingress"
+	internalDBYamlDirectory   = "static/tekton-results/internal-db"
+	logsRBACYamlDirectory     = "static/tekton-results/logs-rbac"
+	deploymentAPI             = "tekton-results-api"
+	serviceAPI                = "tekton-results-api-service"
+	secretAPITLS              = "tekton-results-tls"
+	apiContainerName          = "api"
+	boundSAVolume             = "bound-sa-token"
+	boundSAPath               = "/var/run/secrets/openshift/serviceaccount"
+	lokiStackTLSCAEnvVar      = "LOGGING_PLUGIN_CA_CERT"
+	tektonResultWatcherName   = "tekton-results-watcher"
 )
 
 func OpenShiftExtension(ctx context.Context) common.Extension {
@@ -73,22 +74,29 @@ func OpenShiftExtension(ctx context.Context) common.Extension {
 		logger.Fatalf("Failed to fetch logs RBAC manifest: %v", err)
 	}
 
+	routeIngressManifest, err := getRouteIngressManifest()
+	if err != nil {
+		logger.Fatalf("Failed to fetch route ingress manifest: %v", err)
+	}
+
 	ext := &openshiftExtension{
 		installerSetClient: client.NewInstallerSetClient(operatorclient.Get(ctx).OperatorV1alpha1().TektonInstallerSets(),
 			version, "results-ext", v1alpha1.KindTektonResult, nil),
-		internalDBManifest: internalDBManifest,
-		routeManifest:      routeManifest,
-		logsRBACManifest:   logsRBACManifest,
+		internalDBManifest:   internalDBManifest,
+		routeManifest:        routeManifest,
+		logsRBACManifest:     logsRBACManifest,
+		routeIngressManifest: routeIngressManifest,
 	}
 	return ext
 }
 
 type openshiftExtension struct {
-	installerSetClient *client.InstallerSetClient
-	routeManifest      *mf.Manifest
-	internalDBManifest *mf.Manifest
-	logsRBACManifest   *mf.Manifest
-	removePreset       bool
+	installerSetClient   *client.InstallerSetClient
+	routeManifest        *mf.Manifest
+	internalDBManifest   *mf.Manifest
+	logsRBACManifest     *mf.Manifest
+	routeIngressManifest *mf.Manifest
+	removePreset         bool
 }
 
 func (oe openshiftExtension) Transformers(comp v1alpha1.TektonComponent) []mf.Transformer {
@@ -130,8 +138,15 @@ func (oe *openshiftExtension) PreReconcile(ctx context.Context, tc v1alpha1.Tekt
 }
 
 func (oe openshiftExtension) PostReconcile(ctx context.Context, tc v1alpha1.TektonComponent) error {
+	result := tc.(*v1alpha1.TektonResult)
 	mf := *oe.routeManifest
-	return oe.installerSetClient.PostSet(ctx, tc, &mf, filterAndTransform())
+
+	// Conditionally add route and ingress manifests based on configuration
+	if shouldEnableRoute(result) || shouldEnableIngress(result) {
+		mf = mf.Append(*oe.routeIngressManifest)
+	}
+
+	return oe.installerSetClient.PostSet(ctx, tc, &mf, filterAndTransformRouteIngress())
 }
 
 func (oe openshiftExtension) Finalize(ctx context.Context, tc v1alpha1.TektonComponent) error {
@@ -168,6 +183,15 @@ func getloggingRBACManifest() (*mf.Manifest, error) {
 	manifest := &mf.Manifest{}
 	logsRbac := filepath.Join(common.ComponentBaseDir(), logsRBACYamlDirectory)
 	if err := common.AppendManifest(manifest, logsRbac); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+func getRouteIngressManifest() (*mf.Manifest, error) {
+	manifest := &mf.Manifest{}
+	routeIngress := filepath.Join(common.ComponentBaseDir(), routeIngressYamlDirectory)
+	if err := common.AppendManifest(manifest, routeIngress); err != nil {
 		return nil, err
 	}
 	return manifest, nil
@@ -350,6 +374,158 @@ func injectLokiStackTLSCACert(prop v1alpha1.LokiStackProperties) mf.Transformer 
 			return err
 		}
 		u.SetUnstructuredContent(uObj)
+		return nil
+	}
+}
+
+// shouldEnableRoute determines if route should be enabled for results API
+func shouldEnableRoute(result *v1alpha1.TektonResult) bool {
+	// Default to false if not explicitly set
+	if result.Spec.RouteEnabled == nil {
+		return false
+	}
+	return *result.Spec.RouteEnabled
+}
+
+// shouldEnableIngress determines if ingress should be enabled for results API
+func shouldEnableIngress(result *v1alpha1.TektonResult) bool {
+	// Default to false if not explicitly set
+	if result.Spec.IngressEnabled == nil {
+		return false
+	}
+	return *result.Spec.IngressEnabled
+}
+
+// filterAndTransformRouteIngress provides filtering and transformation for route/ingress resources
+func filterAndTransformRouteIngress() client.FilterAndTransform {
+	return func(ctx context.Context, manifest *mf.Manifest, comp v1alpha1.TektonComponent) (*mf.Manifest, error) {
+		result := comp.(*v1alpha1.TektonResult)
+		resultImgs := common.ToLowerCaseKeys(common.ImagesFromEnv(common.ResultsImagePrefix))
+
+		extra := []mf.Transformer{
+			common.InjectOperandNameLabelOverwriteExisting(v1alpha1.OperandTektoncdResults),
+			common.ApplyProxySettings,
+			common.DeploymentImages(resultImgs),
+			common.StatefulSetImages(resultImgs),
+			configureRoute(result),
+			configureIngress(result),
+		}
+
+		// Filter manifests based on configuration
+		filteredManifest := *manifest
+
+		// Filter out route if not enabled
+		if !shouldEnableRoute(result) {
+			filteredManifest = filteredManifest.Filter(mf.Not(mf.ByKind("Route")))
+		}
+
+		// Filter out ingress if not enabled
+		if !shouldEnableIngress(result) {
+			filteredManifest = filteredManifest.Filter(mf.Not(mf.ByKind("Ingress")))
+		}
+
+		if err := common.Transform(ctx, &filteredManifest, comp, extra...); err != nil {
+			return nil, err
+		}
+		return &filteredManifest, nil
+	}
+}
+
+// configureRoute transformer to configure route based on TektonResult spec
+func configureRoute(result *v1alpha1.TektonResult) mf.Transformer {
+	return func(u *unstructured.Unstructured) error {
+		if u.GetKind() != "Route" || u.GetName() != serviceAPI {
+			return nil
+		}
+
+		// Apply custom host if specified
+		if result.Spec.RouteHost != "" {
+			if err := unstructured.SetNestedField(u.Object, result.Spec.RouteHost, "spec", "host"); err != nil {
+				return err
+			}
+		}
+
+		// Apply custom path if specified
+		if result.Spec.RoutePath != "" {
+			if err := unstructured.SetNestedField(u.Object, result.Spec.RoutePath, "spec", "path"); err != nil {
+				return err
+			}
+		}
+
+		// Apply custom TLS termination if specified
+		if result.Spec.RouteTLSTermination != "" {
+			if err := unstructured.SetNestedField(u.Object, result.Spec.RouteTLSTermination, "spec", "tls", "termination"); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+// configureIngress transformer to configure ingress based on TektonResult spec
+func configureIngress(result *v1alpha1.TektonResult) mf.Transformer {
+	return func(u *unstructured.Unstructured) error {
+		if u.GetKind() != "Ingress" || u.GetName() != serviceAPI {
+			return nil
+		}
+
+		// Apply custom host if specified
+		if result.Spec.IngressHost != "" {
+			// Get the rules array, modify it, then set it back
+			rules, found, err := unstructured.NestedSlice(u.Object, "spec", "rules")
+			if err != nil || !found || len(rules) == 0 {
+				return err
+			}
+			rule := rules[0].(map[string]interface{})
+			rule["host"] = result.Spec.IngressHost
+			rules[0] = rule
+			if err := unstructured.SetNestedSlice(u.Object, rules, "spec", "rules"); err != nil {
+				return err
+			}
+
+			// Also set it in TLS section if TLS is enabled
+			if result.Spec.IngressTLS != nil && *result.Spec.IngressTLS {
+				tls, found, err := unstructured.NestedSlice(u.Object, "spec", "tls")
+				if err != nil || !found || len(tls) == 0 {
+					return err
+				}
+				tlsEntry := tls[0].(map[string]interface{})
+				hosts := []interface{}{result.Spec.IngressHost}
+				tlsEntry["hosts"] = hosts
+				tls[0] = tlsEntry
+				if err := unstructured.SetNestedSlice(u.Object, tls, "spec", "tls"); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Apply custom path if specified
+		if result.Spec.IngressPath != "" {
+			// Get the rules array, modify the path, then set it back
+			rules, found, err := unstructured.NestedSlice(u.Object, "spec", "rules")
+			if err != nil || !found || len(rules) == 0 {
+				return err
+			}
+			rule := rules[0].(map[string]interface{})
+			http := rule["http"].(map[string]interface{})
+			paths := http["paths"].([]interface{})
+			path := paths[0].(map[string]interface{})
+			path["path"] = result.Spec.IngressPath
+			paths[0] = path
+			http["paths"] = paths
+			rule["http"] = http
+			rules[0] = rule
+			if err := unstructured.SetNestedSlice(u.Object, rules, "spec", "rules"); err != nil {
+				return err
+			}
+		}
+
+		// Remove TLS section if TLS is disabled
+		if result.Spec.IngressTLS != nil && !*result.Spec.IngressTLS {
+			unstructured.RemoveNestedField(u.Object, "spec", "tls")
+		}
+
 		return nil
 	}
 }
