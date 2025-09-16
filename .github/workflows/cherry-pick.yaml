@@ -1,0 +1,119 @@
+name: Cherry-pick to Release Branches
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  cherry-pick:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "tekton-robot"
+          git config user.email "dlorenc+tekton@google.com"
+
+      - name: Extract cherry-pick labels
+        id: extract-labels
+        run: |
+          # Extract cherry-pick labels from PR
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          echo "All labels: $LABELS"
+          
+          # Find cherry-pick labels (format: cherry-pick/release-v0.77.x)
+          CHERRY_PICK_BRANCHES=$(echo "$LABELS" | jq -r '.[] | select(startswith("cherry-pick/")) | sub("cherry-pick/"; "")')
+          echo "Cherry-pick branches found: $CHERRY_PICK_BRANCHES"
+          
+          # Use a different delimiter to handle multiline output
+          {
+            echo "branches<<DELIMITER"
+            echo "$CHERRY_PICK_BRANCHES"
+            echo "DELIMITER"
+          } >> $GITHUB_OUTPUT
+
+      - name: Cherry-pick to release branches
+        if: steps.extract-labels.outputs.branches != ''
+        run: |
+          COMMIT_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          echo "Processing commit: $COMMIT_SHA"
+          
+          # Read branches line by line
+          while IFS= read -r branch; do
+            if [[ -n "$branch" && "$branch" != "null" ]]; then
+              echo "Cherry-picking $COMMIT_SHA to $branch"
+              
+              # Check if branch exists
+              if git ls-remote --heads origin "$branch" | grep -q "refs/heads/$branch"; then
+                # Create cherry-pick branch
+                CHERRY_PICK_BRANCH="cherry-pick-${COMMIT_SHA:0:7}-to-${branch//\//-}"
+                
+                # Fetch the target branch
+                git fetch origin "$branch"
+                git checkout -b "$CHERRY_PICK_BRANCH" "origin/$branch"
+                
+                # Attempt cherry-pick
+                if git cherry-pick "$COMMIT_SHA"; then
+                  echo "Cherry-pick successful for $branch"
+                  git push origin "$CHERRY_PICK_BRANCH"
+                  
+                  # Create PR
+                  gh pr create \
+                    --base "$branch" \
+                    --head "$CHERRY_PICK_BRANCH" \
+                    --title "[Cherry-pick] ${{ github.event.pull_request.title }}" \
+                    --body "Cherry-pick of #${{ github.event.pull_request.number }} to $branch
+
+Original PR: ${{ github.event.pull_request.html_url }}
+Original commit: $COMMIT_SHA
+
+/cc @${{ github.event.pull_request.user.login }}" \
+                    --label "cherry-pick" || echo "Failed to create PR, continuing..."
+                else
+                  echo "Cherry-pick failed for $branch - conflicts detected"
+                  git cherry-pick --abort
+                  
+                  # Create issue for manual resolution
+                  gh issue create \
+                    --title "[Cherry-pick] Manual intervention needed for $branch" \
+                    --body "Automated cherry-pick of #${{ github.event.pull_request.number }} to $branch failed due to conflicts.
+
+Original PR: ${{ github.event.pull_request.html_url }}
+Original commit: $COMMIT_SHA
+Target branch: $branch
+
+Please manually cherry-pick this commit:
+\`\`\`bash
+git checkout $branch
+git pull origin $branch
+git cherry-pick $COMMIT_SHA
+# Resolve conflicts if any
+git push origin $branch
+\`\`\`
+
+/cc @${{ github.event.pull_request.user.login }}" \
+                    --label "cherry-pick" \
+                    --label "manual-intervention" || echo "Failed to create issue, continuing..."
+                fi
+                
+                # Clean up
+                git checkout main
+                git branch -D "$CHERRY_PICK_BRANCH" 2>/dev/null || true
+              else
+                echo "Branch $branch does not exist, skipping"
+              fi
+            fi
+          done <<< "${{ steps.extract-labels.outputs.branches }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
