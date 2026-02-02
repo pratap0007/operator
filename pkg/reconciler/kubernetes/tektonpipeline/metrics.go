@@ -19,26 +19,48 @@ package tektonpipeline
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
-	"knative.dev/pkg/metrics"
+)
+
+const (
+	// meterName is the name of the meter used for Tekton Pipeline metrics
+	meterName = "tekton.dev/operator/pipeline"
 )
 
 var (
-	pReconcileCount = stats.Float64("pipeline_reconcile_count",
-		"number of pipeline install",
-		stats.UnitDimensionless)
+	// pReconcileCount is the counter for pipeline reconciliation
+	pReconcileCount metric.Int64Counter
+
+	// once ensures metrics are only initialized once
+	once sync.Once
+
+	// initErr stores any initialization error
+	initErr error
 )
+
+// initMetrics initializes the OpenTelemetry metrics instruments
+func initMetrics() error {
+	once.Do(func() {
+		meter := otel.Meter(meterName)
+
+		pReconcileCount, initErr = meter.Int64Counter(
+			"pipeline_reconcile_count",
+			metric.WithDescription("number of pipeline install"),
+			metric.WithUnit("1"),
+		)
+	})
+	return initErr
+}
 
 // Recorder holds keys for Tekton metrics
 type Recorder struct {
 	initialized bool
-	status      tag.Key
-	version     tag.Key
 
 	ReportingPeriod time.Duration
 }
@@ -53,28 +75,7 @@ func NewRecorder() (*Recorder, error) {
 		ReportingPeriod: 30 * time.Second,
 	}
 
-	status, err := tag.NewKey("status")
-	if err != nil {
-		return nil, err
-	}
-	r.status = status
-
-	version, err := tag.NewKey("version")
-	if err != nil {
-		return nil, err
-	}
-	r.version = version
-
-	err = view.Register(
-		&view.View{
-			Description: pReconcileCount.Description(),
-			Measure:     pReconcileCount,
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{r.status, r.version},
-		},
-	)
-
-	if err != nil {
+	if err := initMetrics(); err != nil {
 		r.initialized = false
 		return r, err
 	}
@@ -87,20 +88,19 @@ func NewRecorder() (*Recorder, error) {
 func (r *Recorder) Count(status, version string) error {
 	if !r.initialized {
 		return fmt.Errorf(
-			"ignoring the metrics recording for pipelinee failed to initialize the metrics recorder")
+			"ignoring the metrics recording for pipeline failed to initialize the metrics recorder")
 	}
 
-	ctx, err := tag.New(
+	// Record the metric with attributes
+	pReconcileCount.Add(
 		context.Background(),
-		tag.Insert(r.status, status),
-		tag.Insert(r.version, version),
+		1,
+		metric.WithAttributes(
+			attribute.String("status", status),
+			attribute.String("version", version),
+		),
 	)
 
-	if err != nil {
-		return err
-	}
-
-	metrics.Record(ctx, pReconcileCount.M(1))
 	return nil
 }
 

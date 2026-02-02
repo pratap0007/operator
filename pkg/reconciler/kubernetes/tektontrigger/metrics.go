@@ -19,26 +19,48 @@ package tektontrigger
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
-	"knative.dev/pkg/metrics"
+)
+
+const (
+	// meterName is the name of the meter used for Tekton Trigger metrics
+	meterName = "tekton.dev/operator/trigger"
 )
 
 var (
-	tReconcileCount = stats.Float64("trigger_reconcile_count",
-		"number of trigger install",
-		stats.UnitDimensionless)
+	// tReconcileCount is the counter for trigger reconciliation
+	tReconcileCount metric.Int64Counter
+
+	// once ensures metrics are only initialized once
+	once sync.Once
+
+	// initErr stores any initialization error
+	initErr error
 )
+
+// initMetrics initializes the OpenTelemetry metrics instruments
+func initMetrics() error {
+	once.Do(func() {
+		meter := otel.Meter(meterName)
+
+		tReconcileCount, initErr = meter.Int64Counter(
+			"trigger_reconcile_count",
+			metric.WithDescription("number of trigger install"),
+			metric.WithUnit("1"),
+		)
+	})
+	return initErr
+}
 
 // Recorder holds keys for Tekton metrics
 type Recorder struct {
 	initialized bool
-	status      tag.Key
-	version     tag.Key
 
 	ReportingPeriod time.Duration
 }
@@ -53,28 +75,7 @@ func NewRecorder() (*Recorder, error) {
 		ReportingPeriod: 30 * time.Second,
 	}
 
-	status, err := tag.NewKey("status")
-	if err != nil {
-		return nil, err
-	}
-	r.status = status
-
-	version, err := tag.NewKey("version")
-	if err != nil {
-		return nil, err
-	}
-	r.version = version
-
-	err = view.Register(
-		&view.View{
-			Description: tReconcileCount.Description(),
-			Measure:     tReconcileCount,
-			Aggregation: view.Count(),
-			TagKeys:     []tag.Key{r.status, r.version},
-		},
-	)
-
-	if err != nil {
+	if err := initMetrics(); err != nil {
 		r.initialized = false
 		return r, err
 	}
@@ -87,20 +88,19 @@ func NewRecorder() (*Recorder, error) {
 func (r *Recorder) Count(status, version string) error {
 	if !r.initialized {
 		return fmt.Errorf(
-			"ignoring the metrics recording for trigger , failed to initialize the metrics recorder")
+			"ignoring the metrics recording for trigger, failed to initialize the metrics recorder")
 	}
 
-	ctx, err := tag.New(
+	// Record the metric with attributes
+	tReconcileCount.Add(
 		context.Background(),
-		tag.Insert(r.status, status),
-		tag.Insert(r.version, version),
+		1,
+		metric.WithAttributes(
+			attribute.String("status", status),
+			attribute.String("version", version),
+		),
 	)
 
-	if err != nil {
-		return err
-	}
-
-	metrics.Record(ctx, tReconcileCount.M(1))
 	return nil
 }
 

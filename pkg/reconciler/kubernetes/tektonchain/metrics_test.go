@@ -14,16 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tektonresult
+package tektonchain
 
 import (
 	"testing"
+
+	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
 )
 
 func TestUninitializedMetrics(t *testing.T) {
 	recorder := Recorder{initialized: false}
-	if err := recorder.Count("v0.1", "GCS"); err != errUninitializedRecorder {
-		t.Errorf("recorder.Count recording expected to return error %s but got %v", errUninitializedRecorder.Error(), err)
+	spec := v1alpha1.TektonChainSpec{}
+	if err := recorder.Count("v0.1", spec); err == nil {
+		t.Error("recorder.Count expected to return error for uninitialized recorder, but got nil")
 	}
 }
 
@@ -33,13 +36,32 @@ func TestMetricsCount(t *testing.T) {
 		t.Errorf("failed to initialize recorder, got %s", err.Error())
 	}
 
-	// Test that Count doesn't return an error for initialized recorder
-	if err := recorder.Count("v0.1", "GCS"); err != nil {
+	// Test with empty spec
+	spec := v1alpha1.TektonChainSpec{}
+	if err := recorder.Count("v0.20.0", spec); err != nil {
 		t.Errorf("recorder.Count recording failed got %s", err.Error())
 	}
 
-	// Test with different log types
-	if err := recorder.Count("v0.1", "S3"); err != nil {
+	// Test with populated spec using the correct embedded structure
+	taskrunStorage := "oci"
+	pipelinerunStorage := "oci"
+	ociStorage := "oci"
+	spec = v1alpha1.TektonChainSpec{
+		Chain: v1alpha1.Chain{
+			ChainProperties: v1alpha1.ChainProperties{
+				ArtifactsTaskRunFormat:      "in-toto",
+				ArtifactsTaskRunStorage:     &taskrunStorage,
+				ArtifactsTaskRunSigner:      "x509",
+				ArtifactsPipelineRunFormat:  "in-toto",
+				ArtifactsPipelineRunStorage: &pipelinerunStorage,
+				ArtifactsPipelineRunSigner:  "x509",
+				ArtifactsOCIFormat:          "simplesigning",
+				ArtifactsOCIStorage:         &ociStorage,
+				ArtifactsOCISigner:          "x509",
+			},
+		},
+	}
+	if err := recorder.Count("v0.20.0", spec); err != nil {
 		t.Errorf("recorder.Count recording failed got %s", err.Error())
 	}
 }
@@ -56,21 +78,5 @@ func TestNewRecorder(t *testing.T) {
 
 	if !recorder.initialized {
 		t.Error("NewRecorder() returned uninitialized recorder")
-	}
-}
-
-func TestRecorderWrapper(t *testing.T) {
-	recorder, err := NewRecorder()
-	if err != nil {
-		t.Errorf("failed to initialize recorder, got %s", err.Error())
-	}
-
-	wrapper := NewRecorderWrapper(recorder)
-	if wrapper == nil {
-		t.Error("NewRecorderWrapper() returned nil")
-	}
-
-	if wrapper.recorder != recorder {
-		t.Error("NewRecorderWrapper() did not set recorder correctly")
 	}
 }

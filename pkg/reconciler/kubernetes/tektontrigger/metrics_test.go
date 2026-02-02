@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Tekton Authors
+Copyright 2021 The Tekton Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tektonresult
+package tektontrigger
 
 import (
 	"testing"
@@ -22,8 +22,8 @@ import (
 
 func TestUninitializedMetrics(t *testing.T) {
 	recorder := Recorder{initialized: false}
-	if err := recorder.Count("v0.1", "GCS"); err != errUninitializedRecorder {
-		t.Errorf("recorder.Count recording expected to return error %s but got %v", errUninitializedRecorder.Error(), err)
+	if err := recorder.Count("installed", "v0.1"); err == nil {
+		t.Error("recorder.Count expected to return error for uninitialized recorder, but got nil")
 	}
 }
 
@@ -34,12 +34,12 @@ func TestMetricsCount(t *testing.T) {
 	}
 
 	// Test that Count doesn't return an error for initialized recorder
-	if err := recorder.Count("v0.1", "GCS"); err != nil {
+	if err := recorder.Count("installed", "v0.25.0"); err != nil {
 		t.Errorf("recorder.Count recording failed got %s", err.Error())
 	}
 
-	// Test with different log types
-	if err := recorder.Count("v0.1", "S3"); err != nil {
+	// Test with different status
+	if err := recorder.Count("failed", "v0.25.0"); err != nil {
 		t.Errorf("recorder.Count recording failed got %s", err.Error())
 	}
 }
@@ -56,21 +56,5 @@ func TestNewRecorder(t *testing.T) {
 
 	if !recorder.initialized {
 		t.Error("NewRecorder() returned uninitialized recorder")
-	}
-}
-
-func TestRecorderWrapper(t *testing.T) {
-	recorder, err := NewRecorder()
-	if err != nil {
-		t.Errorf("failed to initialize recorder, got %s", err.Error())
-	}
-
-	wrapper := NewRecorderWrapper(recorder)
-	if wrapper == nil {
-		t.Error("NewRecorderWrapper() returned nil")
-	}
-
-	if wrapper.recorder != recorder {
-		t.Error("NewRecorderWrapper() did not set recorder correctly")
 	}
 }

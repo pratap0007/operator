@@ -19,35 +19,49 @@ package tektonchain
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/tektoncd/operator/pkg/apis/operator/v1alpha1"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/zap"
-	"knative.dev/pkg/metrics"
+)
+
+const (
+	// meterName is the name of the meter used for Tekton Chain metrics
+	meterName = "tekton.dev/operator/chain"
 )
 
 var (
-	rReconcileCount = stats.Float64("chains_reconciled",
-		"metrics of chains reconciled with labels",
-		stats.UnitDimensionless)
+	// rReconcileCount is the counter for chain reconciliation
+	rReconcileCount metric.Int64Counter
+
+	// once ensures metrics are only initialized once
+	once sync.Once
+
+	// initErr stores any initialization error
+	initErr error
 )
+
+// initMetrics initializes the OpenTelemetry metrics instruments
+func initMetrics() error {
+	once.Do(func() {
+		meter := otel.Meter(meterName)
+
+		rReconcileCount, initErr = meter.Int64Counter(
+			"chains_reconciled",
+			metric.WithDescription("metrics of chains reconciled with labels"),
+			metric.WithUnit("1"),
+		)
+	})
+	return initErr
+}
 
 // Recorder holds keys for Tekton metrics
 type Recorder struct {
-	initialized        bool
-	version            tag.Key
-	taskrunFormat      tag.Key
-	taskrunStorage     tag.Key
-	taskrunSigner      tag.Key
-	pipelinerunFormat  tag.Key
-	pipelinerunStorage tag.Key
-	pipelinerunSigner  tag.Key
-	ociFormat          tag.Key
-	ociStorage         tag.Key
-	ociSigner          tag.Key
+	initialized bool
 
 	ReportingPeriod time.Duration
 }
@@ -62,79 +76,7 @@ func NewRecorder() (*Recorder, error) {
 		ReportingPeriod: 30 * time.Second,
 	}
 
-	version, err := tag.NewKey("version")
-	if err != nil {
-		return nil, err
-	}
-	r.version = version
-
-	taskrunFormat, err := tag.NewKey("taskrun_format")
-	if err != nil {
-		return nil, err
-	}
-	r.taskrunFormat = taskrunFormat
-
-	taskrunStorage, err := tag.NewKey("taskrun_storage")
-	if err != nil {
-		return nil, err
-	}
-	r.taskrunStorage = taskrunStorage
-
-	taskrunSigner, err := tag.NewKey("taskrun_signer")
-	if err != nil {
-		return nil, err
-	}
-	r.taskrunSigner = taskrunSigner
-
-	pipelinerunFormat, err := tag.NewKey("pipelinerun_format")
-	if err != nil {
-		return nil, err
-	}
-	r.pipelinerunFormat = pipelinerunFormat
-
-	pipelinerunStorage, err := tag.NewKey("pipelinerun_storage")
-	if err != nil {
-		return nil, err
-	}
-	r.pipelinerunStorage = pipelinerunStorage
-
-	pipelinerunSigner, err := tag.NewKey("pipelinerun_signer")
-	if err != nil {
-		return nil, err
-	}
-	r.pipelinerunSigner = pipelinerunSigner
-
-	ociFormat, err := tag.NewKey("oci_format")
-	if err != nil {
-		return nil, err
-	}
-	r.ociFormat = ociFormat
-
-	ociStorage, err := tag.NewKey("oci_storage")
-	if err != nil {
-		return nil, err
-	}
-	r.ociStorage = ociStorage
-
-	ociSigner, err := tag.NewKey("oci_signer")
-	if err != nil {
-		return nil, err
-	}
-	r.ociSigner = ociSigner
-
-	err = view.Register(
-		&view.View{
-			Description: rReconcileCount.Description(),
-			Measure:     rReconcileCount,
-			Aggregation: view.Count(),
-			TagKeys: []tag.Key{r.version,
-				r.taskrunFormat, r.taskrunStorage, r.taskrunSigner,
-				r.pipelinerunFormat, r.pipelinerunStorage, r.pipelinerunSigner,
-				r.ociFormat, r.ociStorage, r.ociSigner},
-		},
-	)
-
-	if err != nil {
+	if err := initMetrics(); err != nil {
 		r.initialized = false
 		return r, err
 	}
@@ -147,7 +89,7 @@ func NewRecorder() (*Recorder, error) {
 func (r *Recorder) Count(version string, spec v1alpha1.TektonChainSpec) error {
 	if !r.initialized {
 		return fmt.Errorf(
-			"ignoring the metrics recording for pipelinee failed to initialize the metrics recorder")
+			"ignoring the metrics recording for chain failed to initialize the metrics recorder")
 	}
 
 	var taskrunStorage, pipelinerunStorage, ociStorage string
@@ -161,25 +103,24 @@ func (r *Recorder) Count(version string, spec v1alpha1.TektonChainSpec) error {
 		ociStorage = *spec.ArtifactsOCIStorage
 	}
 
-	ctx, err := tag.New(
+	// Record the metric with attributes
+	rReconcileCount.Add(
 		context.Background(),
-		tag.Insert(r.version, version),
-		tag.Insert(r.taskrunFormat, spec.ArtifactsTaskRunFormat),
-		tag.Insert(r.taskrunStorage, taskrunStorage),
-		tag.Insert(r.taskrunSigner, spec.ArtifactsTaskRunSigner),
-		tag.Insert(r.pipelinerunFormat, spec.ArtifactsPipelineRunFormat),
-		tag.Insert(r.pipelinerunStorage, pipelinerunStorage),
-		tag.Insert(r.pipelinerunSigner, spec.ArtifactsPipelineRunSigner),
-		tag.Insert(r.ociFormat, spec.ArtifactsOCIFormat),
-		tag.Insert(r.ociStorage, ociStorage),
-		tag.Insert(r.ociSigner, spec.ArtifactsOCISigner),
+		1,
+		metric.WithAttributes(
+			attribute.String("version", version),
+			attribute.String("taskrun_format", spec.ArtifactsTaskRunFormat),
+			attribute.String("taskrun_storage", taskrunStorage),
+			attribute.String("taskrun_signer", spec.ArtifactsTaskRunSigner),
+			attribute.String("pipelinerun_format", spec.ArtifactsPipelineRunFormat),
+			attribute.String("pipelinerun_storage", pipelinerunStorage),
+			attribute.String("pipelinerun_signer", spec.ArtifactsPipelineRunSigner),
+			attribute.String("oci_format", spec.ArtifactsOCIFormat),
+			attribute.String("oci_storage", ociStorage),
+			attribute.String("oci_signer", spec.ArtifactsOCISigner),
+		),
 	)
 
-	if err != nil {
-		return err
-	}
-
-	metrics.Record(ctx, rReconcileCount.M(1))
 	return nil
 }
 
