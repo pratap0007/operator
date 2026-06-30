@@ -26,10 +26,12 @@ find_latest_version() {
   echo "$version"
 }
 
-# Get SHA digest for an image:tag
+# Get SHA digest for an image:tag (manifest list digest for multi-arch images)
 get_image_sha() {
   local image_url=$1
-  skopeo inspect --raw docker://${image_url} | jq -r '.manifests[0].digest // .digest'
+  # Get the digest of the manifest itself (not a specific architecture)
+  # This works for both multi-arch manifest lists and single-arch manifests
+  skopeo inspect docker://${image_url} | jq -r '.Digest'
 }
 
 # Update image SHA in YAML files
